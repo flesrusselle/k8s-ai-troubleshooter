@@ -1,0 +1,43 @@
+id: "helm"
+title: "Helm Release & Ownership Diagnostic Decision Tree"
+trigger:
+  symptom: "Helm deployment failed, release stuck in pending-upgrade, template mismatch"
+  reason: "Helm release failure, hook failed, values syntax error"
+
+steps:
+  - id: "step-1-list-helm"
+    action: "read"
+    command: "helm list -A"
+    purpose: "Check Helm release status across namespaces"
+    outcomes:
+      - condition: "Release status == 'failed' or 'pending-upgrade'"
+        next: "step-2-helm-status"
+
+  - id: "step-2-helm-status"
+    action: "inspect"
+    command: "helm status <release-name> -n <namespace>"
+    purpose: "Inspect release notes and error details"
+    outcomes:
+      - condition: "Status shows hook execution failure"
+        next: "step-3-helm-history"
+
+  - id: "step-3-helm-history"
+    action: "inspect"
+    command: "helm history <release-name> -n <namespace>"
+    purpose: "Identify last known good revision"
+    outcomes:
+      - condition: "Previous successful revision exists"
+        hypothesis: "Failed upgrade can be remediated by rolling back to revision N-1"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+
+  - id: "step-confirm-root-cause"
+    action: "confirm"
+    command: "helm get values <release-name> -n <namespace>"
+    purpose: "Inspect deployed user values for misconfigurations"
+    next: "step-remediation-approval"
+
+  - id: "step-remediation-approval"
+    action: "remediate_approval_required"
+    command: "Human approval required before helm rollback or helm upgrade"
+    purpose: "Present exact helm rollback/upgrade command and await human confirmation"

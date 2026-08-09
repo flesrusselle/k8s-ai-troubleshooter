@@ -1,0 +1,59 @@
+id: "networking"
+title: "Kubernetes Networking, CoreDNS & Ingress Diagnostic Decision Tree"
+trigger:
+  symptom: "Network connection failure, Service returns 502/503/504, or CoreDNS lookup failure"
+  reason: "Ingress 502/503, CoreDNS failure, Endpoint missing, NetworkPolicy drop"
+
+steps:
+  - id: "step-1-trace-ingress"
+    action: "read"
+    command: "kubectl get ingress -n <namespace>"
+    purpose: "Verify Ingress resource rules, hosts, paths, and backend service names"
+    outcomes:
+      - condition: "Ingress target service exists"
+        next: "step-2-verify-service"
+      - condition: "Ingress points to non-existent service"
+        hypothesis: "Ingress backend configuration mismatch"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+
+  - id: "step-2-verify-service"
+    action: "inspect"
+    command: "kubectl get svc <service-name> -n <namespace> -o json"
+    purpose: "Inspect service selector and target ports"
+    outcomes:
+      - condition: "Service selector exists"
+        next: "step-3-check-endpoints"
+
+  - id: "step-3-check-endpoints"
+    action: "inspect"
+    command: "kubectl get endpoints <service-name> -n <namespace>"
+    purpose: "Check if service has active pod IPs bound to endpoints"
+    outcomes:
+      - condition: "Endpoints list is empty (<none>)"
+        hypothesis: "Service selector labels do not match pod labels or backing pods are unready"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+      - condition: "Endpoints exist"
+        next: "step-4-check-coredns"
+
+  - id: "step-4-check-coredns"
+    action: "inspect"
+    command: "kubectl get pods -n kube-system -l k8s-app=kube-dns"
+    purpose: "Inspect CoreDNS pod health and readiness"
+    outcomes:
+      - condition: "CoreDNS pods non-running or CrashLooping"
+        hypothesis: "DNS resolution failing cluster-wide due to CoreDNS pod crash"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+
+  - id: "step-confirm-root-cause"
+    action: "confirm"
+    command: "kubectl get networkpolicies -n <namespace>"
+    purpose: "Check NetworkPolicy rules blocking traffic between namespace components"
+    next: "step-remediation-approval"
+
+  - id: "step-remediation-approval"
+    action: "remediate_approval_required"
+    command: "Human approval required before applying network policy or ingress patch"
+    purpose: "Present exact networking fix command and await human consent"

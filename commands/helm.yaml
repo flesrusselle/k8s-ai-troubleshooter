@@ -1,0 +1,95 @@
+version: "1.0"
+catalog: "helm-diagnostics"
+commands:
+  - name: "helm-list-all"
+    command: "helm list -A"
+    category: "helm"
+    purpose: "List all Helm releases across all namespaces with release status and chart version"
+    safety: "SAFE_READ"
+    requires: []
+    namespace_scope: false
+    cluster_scope: true
+    expected_output: "Table of releases with NAME, NAMESPACE, REVISION, STATUS, CHART, APP VERSION"
+    failure_modes:
+      - "Helm RBAC permissions missing"
+    official_docs: "https://helm.sh/docs/helm/helm_list/"
+
+  - name: "helm-status"
+    command: "helm status <release-name> -n <namespace>"
+    category: "helm"
+    purpose: "Get detailed status, last deployed timestamp, notes, and resources for Helm release"
+    safety: "SAFE_READ"
+    requires: ["release-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Release status text, notes, and deployed resources summary"
+    failure_modes:
+      - "Release not found"
+    official_docs: "https://helm.sh/docs/helm/helm_status/"
+
+  - name: "helm-get-values"
+    command: "helm get values <release-name> -n <namespace>"
+    category: "helm"
+    purpose: "Fetch active user-supplied value overrides for release"
+    safety: "SAFE_READ"
+    requires: ["release-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "YAML formatted custom values supplied during deployment/upgrade"
+    failure_modes:
+      - "Release missing"
+    official_docs: "https://helm.sh/docs/helm/helm_get_values/"
+
+  - name: "helm-get-manifest"
+    command: "helm get manifest <release-name> -n <namespace>"
+    category: "helm"
+    purpose: "Fetch rendered Kubernetes manifests for release"
+    safety: "SAFE_READ"
+    requires: ["release-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Full rendered YAML manifest stream for release"
+    failure_modes:
+      - "Release missing"
+    official_docs: "https://helm.sh/docs/helm/helm_get_manifest/"
+
+  - name: "helm-history"
+    command: "helm history <release-name> -n <namespace>"
+    category: "helm"
+    purpose: "Fetch revision history for release to inspect past upgrades/rollbacks"
+    safety: "SAFE_READ"
+    requires: ["release-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Revision history table with REVISION, UPDATED, STATUS, CHART, DESCRIPTION"
+    failure_modes:
+      - "Release missing"
+    official_docs: "https://helm.sh/docs/helm/helm_history/"
+
+  - name: "helm-rollback"
+    command: "helm rollback <release-name> <revision> -n <namespace>"
+    category: "helm"
+    purpose: "Roll back release to a previous working revision"
+    safety: "HUMAN_APPROVAL_REQUIRED"
+    requires: ["release-name", "revision", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Rollback successful confirmation message"
+    failure_modes:
+      - "Invalid revision number"
+      - "Chart hook failure"
+    official_docs: "https://helm.sh/docs/helm/helm_rollback/"
+
+  - name: "helm-uninstall"
+    command: "helm uninstall <release-name> -n <namespace>"
+    category: "helm"
+    purpose: "Uninstall release and purge associated resources from cluster"
+    safety: "DESTRUCTIVE"
+    requires: ["release-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Release uninstalled confirmation"
+    failure_modes:
+      - "Release missing"
+      - "Cascade deletion timeout"
+    official_docs: "https://helm.sh/docs/helm/helm_uninstall/"

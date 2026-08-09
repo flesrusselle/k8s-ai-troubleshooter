@@ -1,0 +1,51 @@
+id: "storage"
+title: "Kubernetes Storage & Persistent Volume Claim Diagnostic Decision Tree"
+trigger:
+  symptom: "PVC Pending, Volume mount failed, ContainerCreating stuck on volume attachment"
+  reason: "PVC binding failed, StorageClass missing, ReadWriteOnce conflict"
+
+steps:
+  - id: "step-1-inspect-pvc"
+    action: "read"
+    command: "kubectl get pvc -n <namespace>"
+    purpose: "Check status of PVC (Bound, Pending, Lost)"
+    outcomes:
+      - condition: "PVC status == 'Pending'"
+        next: "step-2-describe-pvc"
+      - condition: "PVC status == 'Bound'"
+        next: "step-3-check-volume-attachment"
+
+  - id: "step-2-describe-pvc"
+    action: "inspect"
+    command: "kubectl describe pvc <pvc-name> -n <namespace>"
+    purpose: "Inspect storage class, access modes, capacity request, and PVC events"
+    outcomes:
+      - condition: "Events show 'storageclass.storage.k8s.io not found'"
+        hypothesis: "Specified StorageClass does not exist in cluster"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+      - condition: "Events show 'waiting for first consumer to be created'"
+        hypothesis: "Volume binding mode is WaitForFirstConsumer and pod is unscheduled"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+
+  - id: "step-3-check-volume-attachment"
+    action: "inspect"
+    command: "kubectl get volumeattachments"
+    purpose: "Verify node volume attachment status"
+    outcomes:
+      - condition: "VolumeAttachment stuck in attach error"
+        hypothesis: "ReadWriteOnce volume locked by another node or CSI driver timeout"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+
+  - id: "step-confirm-root-cause"
+    action: "confirm"
+    command: "kubectl get storageclass"
+    purpose: "Verify StorageClass provisioner availability"
+    next: "step-remediation-approval"
+
+  - id: "step-remediation-approval"
+    action: "remediate_approval_required"
+    command: "Human approval required before deleting PVC or modifying storage classes"
+    purpose: "Present storage remediation options and await human approval"

@@ -1,0 +1,39 @@
+name: CI & Runbook Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jsonschema
+
+      - name: Run Repository Structural Validation
+        run: |
+          python scripts/validate.py
+
+      - name: Run Python Test Suite
+        run: |
+          python -m unittest discover tests
+
+      - name: Generate PR Release Preview
+        if: github.event_name == 'pull_request'
+        run: |
+          python scripts/generate_release_preview.py

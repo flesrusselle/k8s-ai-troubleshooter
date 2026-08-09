@@ -1,0 +1,137 @@
+version: "1.0"
+catalog: "kubectl-diagnostics"
+commands:
+  - name: "get-cluster-info"
+    command: "kubectl cluster-info"
+    category: "cluster"
+    purpose: "Inspect cluster control plane endpoint and core services status"
+    safety: "SAFE_READ"
+    requires: []
+    namespace_scope: false
+    cluster_scope: true
+    expected_output: "Control plane URL and core add-ons status"
+    failure_modes:
+      - "Connection refused / API server unreachable"
+      - "Context configuration invalid"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_cluster-info/"
+
+  - name: "get-nodes-wide"
+    command: "kubectl get nodes -o wide"
+    category: "nodes"
+    purpose: "List all cluster nodes with internal/external IPs, OS, kernel, and container runtime"
+    safety: "SAFE_READ"
+    requires: []
+    namespace_scope: false
+    cluster_scope: true
+    expected_output: "Node list with status Ready/NotReady, age, role, version"
+    failure_modes:
+      - "RBAC access forbidden"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/"
+
+  - name: "get-failing-pods-all-namespaces"
+    command: "kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded"
+    category: "pods"
+    purpose: "Find all unhealthy or failing pods across all cluster namespaces"
+    safety: "SAFE_READ"
+    requires: []
+    namespace_scope: false
+    cluster_scope: true
+    expected_output: "List of non-running pods with status, restart count, age, namespace"
+    failure_modes:
+      - "No failing pods found"
+      - "RBAC read access forbidden on all namespaces"
+    official_docs: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/"
+
+  - name: "describe-pod"
+    command: "kubectl describe pod <pod-name> -n <namespace>"
+    category: "pods"
+    purpose: "Fetch detailed pod spec, conditions, volume mounts, container status, and recent events"
+    safety: "SAFE_READ"
+    requires: ["pod-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Detailed text representation of pod spec and events"
+    failure_modes:
+      - "Pod not found"
+      - "Namespace not found"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_describe/"
+
+  - name: "get-pod-logs-current"
+    command: "kubectl logs <pod-name> -n <namespace> --all-containers --tail=200"
+    category: "pods"
+    purpose: "Fetch recent logs for all containers in pod"
+    safety: "SAFE_READ"
+    requires: ["pod-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Container stdout/stderr log output"
+    failure_modes:
+      - "Container non-responsive"
+      - "Log buffer cleared"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/"
+
+  - name: "get-pod-logs-previous"
+    command: "kubectl logs <pod-name> -n <namespace> --previous --all-containers"
+    category: "pods"
+    purpose: "Fetch logs from previous container instance prior to crash (CrashLoopBackOff diagnosis)"
+    safety: "SAFE_READ"
+    requires: ["pod-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Previous container log stream leading to crash"
+    failure_modes:
+      - "No previous container state found"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/"
+
+  - name: "get-events-sorted"
+    command: "kubectl get events -A --sort-by='.metadata.creationTimestamp'"
+    category: "events"
+    purpose: "List cluster-wide events sorted chronologically to trace failure timeline"
+    safety: "SAFE_READ"
+    requires: []
+    namespace_scope: false
+    cluster_scope: true
+    expected_output: "Chronological event log across all namespaces"
+    failure_modes:
+      - "Event retention window expired (default 1h)"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/"
+
+  - name: "top-pods"
+    command: "kubectl top pod -n <namespace> --containers"
+    category: "metrics"
+    purpose: "Display CPU and Memory consumption for pod containers"
+    safety: "SAFE_DIAGNOSTIC"
+    requires: ["namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "CPU cores and Memory bytes consumed per container"
+    failure_modes:
+      - "Metrics Server not installed or unavailable"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_top/"
+
+  - name: "rollout-restart-deployment"
+    command: "kubectl rollout restart deployment/<deployment-name> -n <namespace>"
+    category: "deployments"
+    purpose: "Trigger rolling restart of deployment pods"
+    safety: "HUMAN_APPROVAL_REQUIRED"
+    requires: ["deployment-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Deployment rollout restarted status message"
+    failure_modes:
+      - "Deployment missing"
+      - "Rollout blocked by quota"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_rollout/"
+
+  - name: "delete-pod-force"
+    command: "kubectl delete pod <pod-name> -n <namespace> --force --grace-period=0"
+    category: "pods"
+    purpose: "Forcefully terminate pod without waiting for graceful shutdown"
+    safety: "DESTRUCTIVE"
+    requires: ["pod-name", "namespace"]
+    namespace_scope: true
+    cluster_scope: false
+    expected_output: "Pod force deleted confirmation"
+    failure_modes:
+      - "Stateful workload data corruption"
+    official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_delete/"

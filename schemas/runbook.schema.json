@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RunbookSchema",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "purpose",
+    "safety_level",
+    "symptoms",
+    "diagnostic_commands",
+    "root_cause_patterns",
+    "remediation",
+    "human_approval_required",
+    "official_docs"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "when_to_use": {
+      "type": "string"
+    },
+    "safety_level": {
+      "type": "string",
+      "enum": ["SAFE_READ", "SAFE_DIAGNOSTIC", "HUMAN_APPROVAL_REQUIRED", "DESTRUCTIVE"]
+    },
+    "symptoms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "quick_diagnosis": {
+      "type": "string"
+    },
+    "detailed_investigation": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "diagnostic_commands": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "decision_tree": {
+      "type": "string"
+    },
+    "evidence_to_collect": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "root_cause_patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "likely_cause", "confidence"],
+        "properties": {
+          "pattern": { "type": "string" },
+          "likely_cause": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["High", "Medium", "Low"] }
+        }
+      },
+      "minItems": 1
+    },
+    "confirmation": {
+      "type": "string"
+    },
+    "remediation": {
+      "type": "string"
+    },
+    "human_approval_required": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "related_runbooks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "official_docs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    }
+  }
+}

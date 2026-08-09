@@ -1,0 +1,39 @@
+id: "node-health"
+title: "Kubernetes Node Health & Pressure Diagnostic Decision Tree"
+trigger:
+  symptom: "NodeNotReady, DiskPressure, MemoryPressure, PIDPressure, NetworkUnavailable"
+  reason: "Kubelet down, node resources exhausted, CNI failure"
+
+steps:
+  - id: "step-1-get-nodes"
+    action: "read"
+    command: "kubectl get nodes -o wide"
+    purpose: "Check node status flags and roles"
+    outcomes:
+      - condition: "Node status == 'NotReady'"
+        next: "step-2-describe-node"
+
+  - id: "step-2-describe-node"
+    action: "inspect"
+    command: "kubectl describe node <node-name>"
+    purpose: "Inspect NodeConditions (MemoryPressure, DiskPressure, PIDPressure, Ready)"
+    outcomes:
+      - condition: "DiskPressure condition == True"
+        hypothesis: "Host filesystem full due to uncleaned container images or logs"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+      - condition: "KubeletReady condition == False"
+        hypothesis: "Kubelet daemon crashed or host system daemon systemd error"
+        confidence: "High"
+        next: "step-confirm-root-cause"
+
+  - id: "step-confirm-root-cause"
+    action: "confirm"
+    command: "kubectl get events -A --field-selector involvedObject.kind=Node"
+    purpose: "Correlate node events with workload evictions"
+    next: "step-remediation-approval"
+
+  - id: "step-remediation-approval"
+    action: "remediate_approval_required"
+    command: "Human approval required before cordoning/draining node or restarting host services"
+    purpose: "Present node drain/restart command and await human confirmation"

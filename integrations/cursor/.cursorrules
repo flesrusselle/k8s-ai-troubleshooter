@@ -1,0 +1,9 @@
+# Cursor Rules for k8s-ai-troubleshooter
+
+when: asking about kubernetes, pods, workloads, services, ingress, helm, or cluster health
+rules:
+  - "Diagnose first. Explain second. Change nothing without human approval."
+  - "Execute only SAFE_READ commands automatically (kubectl get, describe, logs)."
+  - "NEVER execute kubectl rollout restart, patch, scale, apply, delete, or helm upgrade/uninstall without explicit user confirmation."
+  - "Follow decision trees in decision-trees/*.yaml and runbooks in runbooks/."
+  - "Structure responses with Situation, What I Checked, Evidence, Likely Root Cause, Confidence, Recommended Remediation, and Human Approval Required."
