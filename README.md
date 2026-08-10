@@ -4,6 +4,8 @@
 
 `k8s-ai-troubleshooter` is an open-source, model-agnostic, deterministic diagnostic engine and troubleshooting knowledge base for Kubernetes. It is designed to be loaded directly by AI coding assistants, MCP clients, autonomous agents, and human SREs.
 
+Pin to a [tagged release](https://github.com/flesrusselle/k8s-ai-troubleshooter/tags) rather than `main` if you depend on this not changing under you — see [`CHANGELOG.md`](CHANGELOG.md).
+
 ---
 
 ## 💡 What is this?

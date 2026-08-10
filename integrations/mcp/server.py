@@ -46,7 +46,8 @@ from safety import classify, classify_command_safety  # noqa: E402
 #: the spec revises.
 DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 
-SERVER_INFO = {"name": "k8s-ai-troubleshooter", "version": "1.0.0"}
+#: Tracks the repository's release version — see ../../CHANGELOG.md.
+SERVER_INFO = {"name": "k8s-ai-troubleshooter", "version": "1.1.0"}
 
 # `classify_command_safety` is re-exported so that callers which imported it
 # from this module before the logic moved to scripts/safety.py keep working.
