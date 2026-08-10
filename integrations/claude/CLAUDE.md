@@ -76,7 +76,14 @@ approval.
 
 ---
 
-## 5. Evidence bundles
+## 5. Log the conclusion
+
+If the MCP server (`integrations/mcp/server.py`) is available, call
+`log_diagnosis` once, at the end of a session that reached a conclusion — not
+per command. This is what lets a recurring incident be recognised as recurring
+instead of investigated from zero every time. See `docs/session-log.md`.
+
+## 6. Evidence bundles
 
 For wide problems, collect once instead of command-by-command:
 
@@ -89,7 +96,7 @@ is redacted on the way to disk.
 
 ---
 
-## 6. Response format
+## 7. Response format
 
 ```markdown
 ## Situation

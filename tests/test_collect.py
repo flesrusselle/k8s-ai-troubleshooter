@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import collect
+import session_log
 from collect import (
     POD_PLAN,
     UnsafeCommand,
@@ -207,6 +208,62 @@ class TestCaptureIsRedacted(unittest.TestCase):
             write_capture(out_dir, "pods", "kubectl get pods -n prod", "NAME   READY\n")
             written = (out_dir / "pods.txt").read_text()
             self.assertIn("$ kubectl get pods -n prod", written)
+
+
+class TestCollectWritesToSessionLog(unittest.TestCase):
+    """
+    A recurring incident is invisible unless every run leaves a trace. This is
+    the other side of that: proving `collect()` itself writes one, not just
+    that scripts/session_log.py works in isolation.
+    """
+
+    def setUp(self):
+        import os
+
+        self._tmp_log = tempfile.TemporaryDirectory()
+        self._tmp_out = tempfile.TemporaryDirectory()
+        self._log_file = Path(self._tmp_log.name) / "sessions.jsonl"
+        self._original_env = os.environ.get("K8S_AI_TROUBLESHOOTER_SESSION_LOG")
+        os.environ["K8S_AI_TROUBLESHOOTER_SESSION_LOG"] = str(self._log_file)
+        self._original_run_command = collect.run_command
+        collect.run_command = lambda command, timeout=60: (True, '{"items": []}')
+
+    def tearDown(self):
+        import os
+
+        collect.run_command = self._original_run_command
+        if self._original_env is None:
+            os.environ.pop("K8S_AI_TROUBLESHOOTER_SESSION_LOG", None)
+        else:
+            os.environ["K8S_AI_TROUBLESHOOTER_SESSION_LOG"] = self._original_env
+        self._tmp_log.cleanup()
+        self._tmp_out.cleanup()
+
+    def test_a_run_appends_exactly_one_entry(self):
+        out_dir = Path(self._tmp_out.name) / "bundle"
+        collect.collect(out_dir, namespace="prod", include_optional=False, include_pods=False, log=lambda *a: None)
+        entries = session_log.read_entries(self._log_file)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["source"], "collect")
+        self.assertEqual(entries[0]["scope"], "prod")
+
+    def test_evidence_bundle_path_is_recorded(self):
+        out_dir = Path(self._tmp_out.name) / "bundle"
+        collect.collect(out_dir, namespace="prod", include_optional=False, include_pods=False, log=lambda *a: None)
+        entry = session_log.read_entries(self._log_file)[0]
+        self.assertEqual(entry["evidence_bundle"], str(out_dir.resolve()))
+
+    def test_all_namespaces_scope_is_recorded_distinctly(self):
+        out_dir = Path(self._tmp_out.name) / "bundle"
+        collect.collect(out_dir, all_namespaces=True, include_optional=False, include_pods=False, log=lambda *a: None)
+        entry = session_log.read_entries(self._log_file)[0]
+        self.assertEqual(entry["scope"], "all-namespaces")
+
+    def test_disabling_pod_collection_omits_the_unhealthy_count_rather_than_lying(self):
+        out_dir = Path(self._tmp_out.name) / "bundle"
+        collect.collect(out_dir, namespace="prod", include_optional=False, include_pods=False, log=lambda *a: None)
+        entry = session_log.read_entries(self._log_file)[0]
+        self.assertNotIn("unhealthy_pod_count", entry)
 
 
 if __name__ == "__main__":

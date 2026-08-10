@@ -38,6 +38,7 @@ Standard library only, apart from `pyyaml` for symptom routing.
 | `get_decision_tree` | `tree_id` | Decision tree YAML |
 | `query_command_safety` | `command` | Safety tier, reason, whether auto-execution is allowed |
 | `route_symptom` | `signal` | Runbooks matching an observed signal, ranked by specificity |
+| `log_diagnosis` | `signal`, `runbook`, `confidence`, `root_cause`?, `evidence_bundle`?, `notes`? | Records the conclusion to the session log — see [docs/session-log.md](../../docs/session-log.md) |
 
 ---
 

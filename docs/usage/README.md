@@ -43,7 +43,7 @@ Can the assistant execute kubectl itself?
 
 ## The shape of every session
 
-Regardless of platform, a correct session follows the same five beats. If your
+Regardless of platform, a correct session follows the same six beats. If your
 assistant skips one, the integration is not loaded properly.
 
 ```text
@@ -63,6 +63,12 @@ assistant skips one, the integration is not loaded properly.
 
 5. GATE       → the runbook's Human Approval Required section
                  Propose the fix. Do not run it. Wait.
+
+6. LOG        → the log_diagnosis MCP tool, if available
+                 Record the conclusion once, at the end. See
+                 docs/session-log.md — this is what makes a recurring
+                 incident visible instead of investigated from zero
+                 every time.
 ```
 
 ---
@@ -120,5 +126,6 @@ assistant's context window ends up wherever that provider stores it.
 - [safety-model.md](../safety-model.md) — the four tiers and what gates each
 - [ai-integration.md](../ai-integration.md) — the mandatory response schema
 - [evidence-bundles.md](../evidence-bundles.md) — redaction and collection
+- [session-log.md](../session-log.md) — recording a conclusion, and reading it back
 - [reference/](../reference/README.md) — exit codes, pod states, event reasons
 - [../../runbooks/triage.md](../../runbooks/triage.md) — where a session starts

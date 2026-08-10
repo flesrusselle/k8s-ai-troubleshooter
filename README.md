@@ -99,6 +99,7 @@ k8s-ai-troubleshooter/
 | `scripts/collect.py` | Collect a redacted, read-only evidence bundle for an assistant to analyse |
 | `scripts/redact.py` | Strip secrets from cluster output while preserving diagnostic detail |
 | `scripts/safety.py` | Classify any `kubectl` / `helm` command into a safety tier |
+| `scripts/session_log.py` | Review the audit log of past diagnoses — see [docs/session-log.md](docs/session-log.md) |
 | `scripts/validate.py` | Structural validation of runbooks, schemas, routing and links |
 
 ### Reference tables

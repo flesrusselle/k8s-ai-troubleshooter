@@ -9,12 +9,14 @@ sys.path.insert(0, str(REPO_ROOT / "integrations" / "mcp"))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import server
+import session_log
 from server import (
     get_decision_tree,
     get_runbook,
     handle_request,
     list_tools,
     load_runbooks_index,
+    log_diagnosis,
     query_command_safety,
     route_symptom,
     serve,
@@ -61,7 +63,7 @@ class TestProtocol(unittest.TestCase):
         names = {t["name"] for t in tools}
         self.assertEqual(names, {
             "list_runbooks", "get_runbook", "get_decision_tree",
-            "query_command_safety", "route_symptom",
+            "query_command_safety", "route_symptom", "log_diagnosis",
         })
         for tool in tools:
             with self.subTest(tool=tool["name"]):
@@ -225,6 +227,82 @@ class TestSymptomRouting(unittest.TestCase):
         for signal in ["CrashLoopBackOff", "FailedMount", "Evicted", "unmatched"]:
             with self.subTest(signal=signal):
                 self.assertTrue(route_symptom(signal)["routes"][0]["first_command"])
+
+
+class TestLogDiagnosisTool(unittest.TestCase):
+    """
+    log_diagnosis is what makes a session outlive the conversation it happened
+    in. Its one real invariant is that confidence values cannot drift — a
+    session log where one entry says "High" and another says "Certain" cannot
+    be grouped by scripts/session_log.py's --summary, which defeats the reason
+    it exists.
+    """
+
+    def setUp(self):
+        import os
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self._log_file = Path(self._tmp.name) / "sessions.jsonl"
+        self._original_env = os.environ.get("K8S_AI_TROUBLESHOOTER_SESSION_LOG")
+        os.environ["K8S_AI_TROUBLESHOOTER_SESSION_LOG"] = str(self._log_file)
+
+    def tearDown(self):
+        import os
+
+        if self._original_env is None:
+            os.environ.pop("K8S_AI_TROUBLESHOOTER_SESSION_LOG", None)
+        else:
+            os.environ["K8S_AI_TROUBLESHOOTER_SESSION_LOG"] = self._original_env
+        self._tmp.cleanup()
+
+    def test_valid_confidence_is_logged(self):
+        result = log_diagnosis("CrashLoopBackOff", "runbooks/pods/crashloopbackoff.md", "High")
+        self.assertTrue(result["logged"])
+        entries = session_log.read_entries(self._log_file)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["confidence"], "High")
+
+    def test_invalid_confidence_is_rejected_and_nothing_is_written(self):
+        with self.assertRaises(ValueError):
+            log_diagnosis("x", "y", "Certain")
+        self.assertEqual(session_log.read_entries(self._log_file), [])
+
+    def test_optional_fields_are_recorded_when_given(self):
+        log_diagnosis(
+            "OOMKilled", "runbooks/pods/oomkilled.md", "High",
+            root_cause="memory limit too low", evidence_bundle="/tmp/bundle",
+            notes="raised limit to 512Mi",
+        )
+        entry = session_log.read_entries(self._log_file)[0]
+        self.assertEqual(entry["root_cause"], "memory limit too low")
+        self.assertEqual(entry["evidence_bundle"], "/tmp/bundle")
+
+    def test_tool_is_reachable_through_the_protocol_layer(self):
+        payload, is_error = call_tool("log_diagnosis", {
+            "signal": "CrashLoopBackOff",
+            "runbook": "runbooks/pods/crashloopbackoff.md",
+            "confidence": "Medium",
+        })
+        self.assertFalse(is_error)
+        self.assertTrue(payload["logged"])
+
+    def test_invalid_confidence_through_the_protocol_layer_is_reported_in_band(self):
+        """A rejected tool call must surface to the model, not crash the server."""
+        response = handle_request({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "log_diagnosis",
+                       "arguments": {"signal": "x", "runbook": "y", "confidence": "super sure"}},
+        })
+        self.assertTrue(response["result"]["isError"])
+        self.assertIn("confidence must be one of", response["result"]["content"][0]["text"])
+
+    def test_tool_is_advertised_with_an_enum_constrained_confidence(self):
+        tool = next(t for t in list_tools() if t["name"] == "log_diagnosis")
+        self.assertEqual(
+            set(tool["inputSchema"]["properties"]["confidence"]["enum"]),
+            {"High", "Medium", "Low"},
+        )
 
 
 if __name__ == "__main__":

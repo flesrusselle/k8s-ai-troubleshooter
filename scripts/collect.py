@@ -26,6 +26,11 @@ Two integrity properties, both enforced in code rather than by convention:
 2. **Every captured file is redacted before it is written.** Output goes through
    `scripts/redact.py` on the way to disk, so an unredacted secret is never
    persisted in the first place.
+
+Every run also appends one entry to the session log (`scripts/session_log.py`)
+— scope, unhealthy pod count, redaction summary, bundle path — so a recurring
+incident becomes visible across runs instead of vanishing when the bundle
+directory does.
 """
 
 import argparse
@@ -40,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from redact import redact  # noqa: E402
 from safety import SAFE_DIAGNOSTIC, SAFE_READ, classify  # noqa: E402
+import session_log  # noqa: E402
 
 ALLOWED_TIERS = {SAFE_READ, SAFE_DIAGNOSTIC}
 
@@ -269,6 +275,7 @@ def collect(out_dir, namespace=None, all_namespaces=False, include_optional=True
         record(write_capture(out_dir, name, command, output))
         log(f"  {'ok ' if ok else 'err'}  {name}")
 
+    unhealthy = []
     if include_pods:
         pods_dir = out_dir / "pods"
         pods_dir.mkdir(exist_ok=True)
@@ -310,6 +317,15 @@ def collect(out_dir, namespace=None, all_namespaces=False, include_optional=True
         "",
     ]
     (out_dir / "README.md").write_text("\n".join(manifest), encoding="utf-8")
+
+    session_log.record(
+        "collect",
+        scope="all-namespaces" if all_namespaces else (namespace or "current-namespace"),
+        evidence_bundle=str(out_dir.resolve()),
+        unhealthy_pod_count=len(unhealthy) if include_pods else None,
+        redacted=totals or None,
+        failed_commands=failed or None,
+    )
     return totals, failed
 
 
