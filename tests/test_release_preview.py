@@ -178,6 +178,20 @@ class TestDiffAwareness(unittest.TestCase):
         self.assertIn("runbooks/renamed.md", changes["modified"])
         self.assertNotIn("runbooks/existing.md", changes["modified"])
 
+    def test_merge_commit_subjects_are_not_listed_as_changes(self):
+        """Actions builds a merge commit for pull_request; it is not a change."""
+        self._branch_with_changes()
+        git(self.repo, "checkout", "-q", "main")
+        (self.repo / "runbooks" / "on-main.md").write_text("main side\n")
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-qm", "docs: land on main")
+        git(self.repo, "checkout", "-q", "feature")
+        git(self.repo, "merge", "-q", "--no-ff", "-m", "Merge main into feature", "main")
+
+        md = generate_release_preview()
+        self.assertIn("fix: rework safety", md)
+        self.assertNotIn("Merge main into feature", md)
+
     def test_base_branch_falls_back_to_last_commit(self):
         (self.repo / "runbooks" / "second.md").write_text("second\n")
         git(self.repo, "add", "-A")

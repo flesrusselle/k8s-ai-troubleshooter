@@ -233,7 +233,9 @@ def generate_release_preview(created_at: datetime.datetime = None):
     changes = get_changed_files(base_sha)
     commits = []
     if base_sha:
-        raw = _git("log", "--format=%s", f"{base_sha}..HEAD")
+        # --no-merges: on pull_request, Actions checks out a synthetic merge
+        # commit whose subject ("Merge <sha> into <sha>") is not a change.
+        raw = _git("log", "--no-merges", "--format=%s", f"{base_sha}..HEAD")
         commits = [line for line in (raw or "").splitlines() if line.strip()]
 
     grouped = group_by_section(changes)
