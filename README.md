@@ -93,20 +93,112 @@ k8s-ai-troubleshooter/
 
 ## ⚡ Quick Start & Integrations
 
-### 1. Antigravity AI
-Copy `integrations/antigravity/SKILL.md` into your Antigravity skills folder or run with `k8s-ai-troubleshooter` as active workspace.
+### Prerequisites
 
-### 2. Claude Code
-Point Claude to `integrations/claude/CLAUDE.md`.
+Install and configure the tools you want the assistant to use:
 
-### 3. Cursor
-Add `integrations/cursor/.cursorrules` to your project root.
+```bash
+command -v kubectl || echo "kubectl missing"
+command -v helm || echo "helm missing"
+command -v python3 || echo "python3 missing"
+kubectl config current-context
+```
 
-### 4. Generic System Prompt
-Copy `integrations/generic/system-prompt.md` into your LLM client.
+`kubectl` must already be authenticated to the target cluster. This repository does not create credentials, store kubeconfigs, or connect to a cluster by itself.
 
-### 5. Local MCP Server
-Run `python3 integrations/mcp/server.py` to expose `k8s-ai-troubleshooter` as an MCP service.
+### Option 1: Use It as a Human Runbook Library
+
+1. Open the matching runbook under `runbooks/`.
+2. Run the listed `SAFE_READ` commands yourself, such as `kubectl get pods -A`, `kubectl describe pod`, and `kubectl logs`.
+3. Compare the observed output with the matching decision tree under `decision-trees/`.
+4. Apply any remediation only after reviewing the impact.
+
+Good starting points:
+
+- `runbooks/pods/find-failing-pods.md`
+- `runbooks/pods/crashloopbackoff.md`
+- `runbooks/pods/oomkilled.md`
+- `runbooks/networking/ingress.md`
+- `runbooks/storage/pvc-pending.md`
+
+### Option 2: Use It With an AI Assistant
+
+Load one of the integration files into your assistant:
+
+- **Antigravity AI**: copy `integrations/antigravity/SKILL.md` into your Antigravity skills folder or run with this repository as the active workspace.
+- **Claude Code**: point Claude to `integrations/claude/CLAUDE.md`.
+- **Cursor**: add `integrations/cursor/.cursorrules` to your project root.
+- **ChatGPT / Generic LLM**: copy `integrations/generic/system-prompt.md` into your LLM client.
+- **GitHub Copilot**: use `integrations/copilot/instructions.md` as repository instructions.
+
+Then ask a concrete diagnostic question, for example:
+
+```text
+Find all failing pods in the current cluster and explain the likely root cause.
+```
+
+The assistant should execute only read-only diagnostic commands automatically, gather evidence, map the evidence to a decision tree, and stop before any mutating fix.
+
+### Option 3: Run the Local MCP Adapter
+
+The MCP adapter exposes the repository's runbooks, decision trees, and command safety classifier to MCP-compatible clients.
+
+```bash
+python3 integrations/mcp/server.py
+```
+
+For a smoke test:
+
+```bash
+python3 integrations/mcp/server.py --test
+```
+
+See `integrations/mcp/README.md` for the exposed MCP tools.
+
+---
+
+## 🧾 Logs, Evidence & Fix Recommendations
+
+### Does It Save Logs?
+
+No. `k8s-ai-troubleshooter` does **not** persist Kubernetes logs, pod descriptions, events, or command output by default.
+
+When a pod problem is detected, the runbooks may instruct an assistant or human to run commands such as:
+
+```bash
+kubectl describe pod <pod-name> -n <namespace>
+kubectl logs <pod-name> -n <namespace> --previous --all-containers
+kubectl get events -n <namespace> --field-selector involvedObject.name=<pod-name>
+```
+
+Those commands print evidence to the current terminal or AI session. If you want a permanent audit trail, save the output yourself or configure the integrating agent to write a session report outside this repository. Be careful with saved logs because they may contain secrets, tokens, customer data, hostnames, or internal service names.
+
+### Does It Detect Pod Problems Automatically?
+
+The repository provides deterministic diagnostic instructions and decision trees. It does not run as a background controller, Kubernetes operator, or always-on monitoring daemon.
+
+Detection happens when a human or AI assistant runs the diagnostic workflow. For pod issues, the common starting command is:
+
+```bash
+kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+```
+
+The workflow then inspects container status, restart counts, prior logs, events, owner references, scheduling state, node pressure, Helm ownership, and related Kubernetes objects depending on the symptom.
+
+### Does It Compile All Possible Fixes?
+
+It compiles likely fixes from the matching runbooks and decision trees, prioritized by observed evidence. The intended output is:
+
+- observed facts from the cluster;
+- likely root cause;
+- confidence level;
+- commands used to verify the diagnosis;
+- recommended remediation;
+- impact or risk of the remediation;
+- exact command or file change when one is appropriate;
+- a hard stop for human approval before any mutating action.
+
+It does not blindly list every generic Kubernetes fix. The goal is to reduce noise by recommending fixes that match the actual evidence, such as increasing memory limits for confirmed `OOMKilled`, fixing image tags or `imagePullSecrets` for `ImagePullBackOff`, adjusting resource requests for `Pending`, or reviewing application errors for `CrashLoopBackOff`.
 
 ---
 
