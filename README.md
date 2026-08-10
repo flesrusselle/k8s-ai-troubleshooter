@@ -78,16 +78,26 @@ The AI assistant follows this deterministic path:
 
 ```text
 k8s-ai-troubleshooter/
+├── symptom-index.yaml        # Signal → Runbook Router (the entry point)
 ├── docs/                     # Architectural, Safety, Helm & Authoring Guides
-├── runbooks/                 # Diagnostic Runbooks (Pods, Net, Storage, Nodes, Helm)
+├── runbooks/                 # Diagnostic Runbooks (start at runbooks/triage.md)
 ├── decision-trees/           # Machine-Readable YAML Decision Trees
 ├── commands/                 # Classified Command Catalogs (kubectl, Helm)
-├── schemas/                  # JSON Schemas for Runbooks, Decision Trees & Commands
+├── schemas/                  # JSON Schemas for Runbooks, Trees, Commands & Index
 ├── integrations/             # Presets for Antigravity, Claude Code, Cursor, ChatGPT, Copilot, MCP
 ├── examples/                 # Real-World Diagnostic Session Examples
-├── scripts/                  # Schema Validation & PR Release Preview Automation
+├── scripts/                  # Redaction, Evidence Collection, Safety & Validation
 └── tests/                    # Python Validation Test Suite
 ```
+
+### Key scripts
+
+| Script | Purpose |
+| :--- | :--- |
+| `scripts/collect.py` | Collect a redacted, read-only evidence bundle for an assistant to analyse |
+| `scripts/redact.py` | Strip secrets from cluster output while preserving diagnostic detail |
+| `scripts/safety.py` | Classify any `kubectl` / `helm` command into a safety tier |
+| `scripts/validate.py` | Structural validation of runbooks, schemas, routing and links |
 
 ---
 
@@ -106,9 +116,22 @@ kubectl config current-context
 
 `kubectl` must already be authenticated to the target cluster. This repository does not create credentials, store kubeconfigs, or connect to a cluster by itself.
 
+### Collect evidence first (recommended)
+
+Rather than pasting command output by hand — which is how credentials end up in
+a chat log — collect a redacted bundle in one step:
+
+```bash
+python3 scripts/collect.py -n prod -o evidence-bundle
+```
+
+Every command it runs is classified read-only before execution, and all output
+is redacted on the way to disk. See [docs/evidence-bundles.md](docs/evidence-bundles.md).
+
 ### Option 1: Use It as a Human Runbook Library
 
-1. Open the matching runbook under `runbooks/`.
+1. Start at [`runbooks/triage.md`](runbooks/triage.md) to establish blast radius, then
+   match the observed signal against [`symptom-index.yaml`](symptom-index.yaml).
 2. Run the listed `SAFE_READ` commands yourself, such as `kubectl get pods -A`, `kubectl describe pod`, and `kubectl logs`.
 3. Compare the observed output with the matching decision tree under `decision-trees/`.
 4. Apply any remediation only after reviewing the impact.
