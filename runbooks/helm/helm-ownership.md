@@ -58,7 +58,7 @@ Update parameters in Helm `values.yaml` rather than editing live Kubernetes obje
 - `helm upgrade <release-name> <chart> -f values.yaml` (**HUMAN APPROVAL REQUIRED**)
 
 ## Related Runbooks
-- [helm-troubleshooting.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/helm/helm-troubleshooting.md)
+- [helm-troubleshooting.md](helm-troubleshooting.md)
 
 ## Official Documentation
 - [Helm Annotations and Labels](https://helm.sh/docs/chart_best_practices/labels_and_annotations/)

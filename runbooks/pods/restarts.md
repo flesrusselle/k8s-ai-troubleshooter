@@ -57,8 +57,8 @@ Fix underlying instability, increase resource limits, or tune probe thresholds.
 - Deployment rollout restart or manifest update.
 
 ## Related Runbooks
-- [crashloopbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/crashloopbackoff.md)
-- [probes.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/probes.md)
+- [crashloopbackoff.md](crashloopbackoff.md)
+- [probes.md](probes.md)
 
 ## Official Documentation
 - [Pod Lifecycle Overview](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)

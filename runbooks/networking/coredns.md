@@ -74,7 +74,7 @@ Fix upstream `/etc/resolv.conf` forwarding loop or adjust CoreDNS ConfigMap.
 - `kubectl rollout restart deployment coredns -n kube-system` (**HUMAN APPROVAL REQUIRED**)
 
 ## Related Runbooks
-- [endpoints.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/networking/endpoints.md)
+- [endpoints.md](endpoints.md)
 
 ## Official Documentation
 - [Debugging DNS Resolution](https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/)

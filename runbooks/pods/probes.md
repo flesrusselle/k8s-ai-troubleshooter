@@ -59,8 +59,8 @@ Adjust probe delays/timeouts or fix application health endpoint handler.
 - Manifest update or `helm upgrade`.
 
 ## Related Runbooks
-- [endpoints.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/networking/endpoints.md)
-- [crashloopbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/crashloopbackoff.md)
+- [endpoints.md](../networking/endpoints.md)
+- [crashloopbackoff.md](crashloopbackoff.md)
 
 ## Official Documentation
 - [Configure Liveness, Readiness and Startup Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)

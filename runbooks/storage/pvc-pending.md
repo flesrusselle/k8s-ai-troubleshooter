@@ -64,8 +64,8 @@ Create missing StorageClass, request supported capacity, or schedule consuming p
 - `kubectl apply -f storageclass.yaml`
 
 ## Related Runbooks
-- [mount-failure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/storage/mount-failure.md)
-- [pending.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/pending.md)
+- [mount-failure.md](mount-failure.md)
+- [pending.md](../pods/pending.md)
 
 ## Official Documentation
 - [Persistent Volumes Documentation](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)

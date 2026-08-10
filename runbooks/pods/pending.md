@@ -76,8 +76,8 @@ Scale up node pool, lower pod resource requests, or add missing tolerations.
 - Provision additional cloud nodes.
 
 ## Related Runbooks
-- [pvc-pending.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/storage/pvc-pending.md)
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
+- [pvc-pending.md](../storage/pvc-pending.md)
+- [node-pressure.md](../nodes/node-pressure.md)
 
 ## Official Documentation
 - [Kubernetes Pod Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/)

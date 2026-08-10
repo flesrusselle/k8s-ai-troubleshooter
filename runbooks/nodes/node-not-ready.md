@@ -64,8 +64,8 @@ Restart host `kubelet` daemon, clean host container image cache, or reboot host 
 - `kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data`
 
 ## Related Runbooks
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
-- [cluster-health.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/cluster/cluster-health.md)
+- [node-pressure.md](node-pressure.md)
+- [cluster-health.md](../cluster/cluster-health.md)
 
 ## Official Documentation
 - [Node Status Documentation](https://kubernetes.io/docs/concepts/architecture/nodes/#status)

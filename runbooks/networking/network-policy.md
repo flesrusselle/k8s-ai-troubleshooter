@@ -55,7 +55,7 @@ Apply updated NetworkPolicy rule allowing target port traffic.
 - `kubectl apply -f networkpolicy.yaml` (**HUMAN APPROVAL REQUIRED**)
 
 ## Related Runbooks
-- [coredns.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/networking/coredns.md)
+- [coredns.md](coredns.md)
 
 ## Official Documentation
 - [Kubernetes Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/)

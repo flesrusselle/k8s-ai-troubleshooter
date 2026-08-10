@@ -4,7 +4,6 @@ k8s-ai-troubleshooter Repository Structural & Schema Validation Script
 """
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -49,33 +48,71 @@ def validate_command_catalogs():
             raise FileNotFoundError(f"Missing command catalog: {cat_path}")
     print("✅ Command Catalogs exist and are valid.")
 
+LINK_PATTERN = re.compile(r'\[([^\]]+)\]\(([^\)]+)\)')
+EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "#")
+
 def validate_links():
-    markdown_files = list(REPO_ROOT.rglob("*.md"))
-    link_pattern = re.compile(r'\[([^\]]+)\]\((file:///[^\)]+)\)')
+    """
+    Resolve every local Markdown link relative to the file that contains it.
+
+    Absolute file:// links are rejected outright: they encode one machine's
+    directory layout, so they break for every other reader of the repository.
+    """
     invalid_links = []
-    
-    for file_path in markdown_files:
+    checked = 0
+
+    for file_path in sorted(REPO_ROOT.rglob("*.md")):
+        if ".git" in file_path.parts:
+            continue
         content = file_path.read_text(encoding="utf-8")
-        for match in link_pattern.finditer(content):
-            url = match.group(2)
-            clean_path = url.replace("file://", "").split("#")[0]
-            if not os.path.exists(clean_path):
-                invalid_links.append((file_path.name, url))
-                
+        for match in LINK_PATTERN.finditer(content):
+            target = match.group(2).strip()
+            if target.startswith(EXTERNAL_PREFIXES):
+                continue
+
+            rel = file_path.relative_to(REPO_ROOT)
+            if target.startswith("file://"):
+                invalid_links.append((rel, target, "absolute file:// link is not portable"))
+                continue
+
+            checked += 1
+            resolved = (file_path.parent / target.split("#")[0]).resolve()
+            if not resolved.exists():
+                invalid_links.append((rel, target, "target does not exist"))
+
     if invalid_links:
-        print(f"⚠️ Warning: Found {len(invalid_links)} unresolvable local file links:")
-        for source, target in invalid_links:
-            print(f"  {source} -> {target}")
-    else:
-        print("✅ All internal file links validated.")
+        print(f"❌ Found {len(invalid_links)} invalid local links:")
+        for source, target, reason in invalid_links:
+            print(f"  {source} -> {target} ({reason})")
+        raise ValueError(f"{len(invalid_links)} invalid local links")
+
+    print(f"✅ All {checked} internal file links validated.")
 
 def main():
     print("🔍 Running k8s-ai-troubleshooter validation suite...")
-    validate_schemas()
-    validate_runbooks()
-    validate_command_catalogs()
-    validate_links()
+    checks = [
+        validate_schemas,
+        validate_runbooks,
+        validate_command_catalogs,
+        validate_links,
+    ]
+
+    failures = []
+    for check in checks:
+        try:
+            check()
+        except Exception as exc:
+            failures.append(f"{check.__name__}: {exc}")
+            print(f"❌ {check.__name__} failed: {exc}")
+
+    if failures:
+        print(f"\n💥 {len(failures)} validation check(s) FAILED:")
+        for failure in failures:
+            print(f"  - {failure}")
+        return 1
+
     print("🎉 All repository validations PASSED!")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

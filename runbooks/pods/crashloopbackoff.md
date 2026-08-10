@@ -82,9 +82,9 @@ Update application configuration, fix environment secrets, or adjust container l
 - `helm upgrade <release-name> <chart> -f values.yaml`
 
 ## Related Runbooks
-- [oomkilled.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/oomkilled.md)
-- [probes.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/probes.md)
-- [helm-troubleshooting.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/helm/helm-troubleshooting.md)
+- [oomkilled.md](oomkilled.md)
+- [probes.md](probes.md)
+- [helm-troubleshooting.md](../helm/helm-troubleshooting.md)
 
 ## Official Documentation
 - [Kubernetes Pod Lifecycle - Container States](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-states)

@@ -63,7 +63,7 @@ Correct image tag in manifest or recreate `imagePullSecret` in namespace.
 - `kubectl apply -f manifest.yaml`
 
 ## Related Runbooks
-- [find-failing-pods.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/find-failing-pods.md)
+- [find-failing-pods.md](find-failing-pods.md)
 
 ## Official Documentation
 - [Specify ImagePullSecrets on a Pod](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)

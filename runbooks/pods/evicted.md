@@ -59,7 +59,7 @@ Clean host logs, set `ephemeral-storage` resource limits on containers, or expan
 - Node cleanup commands.
 
 ## Related Runbooks
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
+- [node-pressure.md](../nodes/node-pressure.md)
 
 ## Official Documentation
 - [Node Pressure Eviction](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)

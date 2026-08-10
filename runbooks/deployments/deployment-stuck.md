@@ -64,8 +64,8 @@ Undo deployment rollout to last working revision or fix container image/config.
 - `kubectl rollout undo deployment/<deployment-name> -n <namespace>` (**HUMAN APPROVAL REQUIRED**)
 
 ## Related Runbooks
-- [crashloopbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/crashloopbackoff.md)
-- [probes.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/probes.md)
+- [crashloopbackoff.md](../pods/crashloopbackoff.md)
+- [probes.md](../pods/probes.md)
 
 ## Official Documentation
 - [Deployment Rollouts](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#updating-a-deployment)

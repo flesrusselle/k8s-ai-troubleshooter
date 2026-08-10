@@ -67,8 +67,8 @@ Increase container memory limits in deployment spec or Helm values, or optimize 
 - `helm upgrade <release-name> <chart> -f values.yaml`
 
 ## Related Runbooks
-- [crashloopbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/crashloopbackoff.md)
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
+- [crashloopbackoff.md](crashloopbackoff.md)
+- [node-pressure.md](../nodes/node-pressure.md)
 
 ## Official Documentation
 - [Resource Management for Pods](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)

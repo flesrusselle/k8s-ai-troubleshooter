@@ -58,7 +58,7 @@ Gracefully terminate previous pod instance or detach VolumeAttachment object.
 - Force delete old pod or detach VolumeAttachment.
 
 ## Related Runbooks
-- [pvc-pending.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/storage/pvc-pending.md)
+- [pvc-pending.md](pvc-pending.md)
 
 ## Official Documentation
 - [Volume Snapshots & CSI Mounts](https://kubernetes.io/docs/concepts/storage/volumes/)

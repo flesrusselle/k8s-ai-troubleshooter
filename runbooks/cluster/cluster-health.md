@@ -77,8 +77,8 @@ Varies based on isolated root cause (node repair, CNI restart, capacity addition
 - Node cordon or drain commands: `kubectl cordon <node>`, `kubectl drain <node>`
 
 ## Related Runbooks
-- [find-failing-pods.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/find-failing-pods.md)
-- [node-not-ready.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-not-ready.md)
+- [find-failing-pods.md](../pods/find-failing-pods.md)
+- [node-not-ready.md](../nodes/node-not-ready.md)
 
 ## Official Documentation
 - [Kubernetes Cluster Information](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_cluster-info/)

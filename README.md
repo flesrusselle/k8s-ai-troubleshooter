@@ -204,10 +204,10 @@ It does not blindly list every generic Kubernetes fix. The goal is to reduce noi
 
 ## 💰 Zero-Cost Commitment
 
-`k8s-ai-troubleshooter` requires **$0** in external API keys, SaaS platforms, or paid cluster tools. It relies entirely on `kubectl`, standard open-source tools, and local/free AI clients. See [COST.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/docs/COST.md).
+`k8s-ai-troubleshooter` requires **$0** in external API keys, SaaS platforms, or paid cluster tools. It relies entirely on `kubectl`, standard open-source tools, and local/free AI clients. See [COST.md](docs/COST.md).
 
 ---
 
 ## 📜 License
 
-Licensed under the [Apache License, Version 2.0](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/LICENSE).
+Licensed under the [Apache License, Version 2.0](LICENSE).

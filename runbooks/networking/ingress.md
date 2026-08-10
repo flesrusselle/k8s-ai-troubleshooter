@@ -40,7 +40,7 @@ kubectl get svc,endpoints -n <namespace>
    - Check application container logs for crashes/panics.
 2. **HTTP 503 Service Unavailable**:
    - Ingress controller cannot find any active endpoints for backend Service (`Endpoints` list empty).
-   - Check [endpoints.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/networking/endpoints.md).
+   - Check [endpoints.md](endpoints.md).
 3. **HTTP 504 Gateway Timeout**:
    - Application container taking longer to respond than Ingress proxy timeout setting (`proxy-read-timeout`).
 
@@ -72,8 +72,8 @@ Fix backend application crash, adjust readiness probe, or update proxy timeout a
 - `helm upgrade <ingress-controller-release>`
 
 ## Related Runbooks
-- [endpoints.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/networking/endpoints.md)
-- [probes.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/probes.md)
+- [endpoints.md](endpoints.md)
+- [probes.md](../pods/probes.md)
 
 ## Official Documentation
 - [Ingress Controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)

@@ -67,8 +67,8 @@ Update Service selector or fix pod readiness probes.
 - `kubectl patch svc <service-name> -n <namespace> -p '...'`
 
 ## Related Runbooks
-- [probes.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/probes.md)
-- [ingress.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/networking/ingress.md)
+- [probes.md](../pods/probes.md)
+- [ingress.md](ingress.md)
 
 ## Official Documentation
 - [Services and Endpoints](https://kubernetes.io/docs/concepts/services-networking/service/)

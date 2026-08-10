@@ -66,8 +66,8 @@ Roll back release to last stable revision or clear release lock.
 - `helm uninstall <release-name> -n <namespace>` (**DESTRUCTIVE — HUMAN APPROVAL REQUIRED**)
 
 ## Related Runbooks
-- [helm-ownership.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/helm/helm-ownership.md)
-- [deployment-stuck.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/deployments/deployment-stuck.md)
+- [helm-ownership.md](helm-ownership.md)
+- [deployment-stuck.md](../deployments/deployment-stuck.md)
 
 ## Official Documentation
 - [Helm Architecture and Troubleshooting](https://helm.sh/docs/topics/architecture/)

@@ -70,9 +70,9 @@ Refer to specific pod failure runbook (e.g. `crashloopbackoff.md`, `oomkilled.md
 Any workload restart or spec modification requires explicit human approval.
 
 ## Related Runbooks
-- [crashloopbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/crashloopbackoff.md)
-- [oomkilled.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/oomkilled.md)
-- [imagepullbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/imagepullbackoff.md)
+- [crashloopbackoff.md](crashloopbackoff.md)
+- [oomkilled.md](oomkilled.md)
+- [imagepullbackoff.md](imagepullbackoff.md)
 
 ## Official Documentation
 - [Pod Lifecycle Documentation](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)

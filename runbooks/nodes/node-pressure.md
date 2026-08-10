@@ -54,8 +54,8 @@ Prune unused container images, clear host log files, or expand volume size.
 - Host SSH cleanup commands or node replacement.
 
 ## Related Runbooks
-- [evicted.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/evicted.md)
-- [node-not-ready.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-not-ready.md)
+- [evicted.md](../pods/evicted.md)
+- [node-not-ready.md](node-not-ready.md)
 
 ## Official Documentation
 - [Node Pressure Eviction](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
