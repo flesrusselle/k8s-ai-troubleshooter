@@ -210,6 +210,17 @@ class TestSymptomRouting(unittest.TestCase):
             with self.subTest(signal=signal):
                 self.assertEqual(route_symptom(signal)["routes"][0]["runbook"], runbook)
 
+    def test_ecosystem_signals_resolve_to_their_own_runbook(self):
+        expected = {
+            "ComparisonError": "runbooks/ecosystem/argocd-sync-failure.md",
+            "sidecar injection": "runbooks/ecosystem/service-mesh-sidecar.md",
+            "PeerAuthentication": "runbooks/ecosystem/service-mesh-mtls.md",
+            "too many certificates already issued": "runbooks/ecosystem/cert-manager-issuance.md",
+        }
+        for signal, runbook in expected.items():
+            with self.subTest(signal=signal):
+                self.assertEqual(route_symptom(signal)["routes"][0]["runbook"], runbook)
+
     def test_every_route_carries_a_first_command(self):
         for signal in ["CrashLoopBackOff", "FailedMount", "Evicted", "unmatched"]:
             with self.subTest(signal=signal):

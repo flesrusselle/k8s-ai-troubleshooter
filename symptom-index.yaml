@@ -520,3 +520,54 @@ entries:
     runbook: "runbooks/deployments/rollout-rollback.md"
     decision_tree: "decision-trees/pod-failure.yaml"
     first_command: "kubectl rollout history deployment/<name> -n <namespace>"
+
+  # ---- GitOps & ecosystem tooling ------------------------------------------
+
+  - id: "argocd-sync-failure"
+    summary: "An ArgoCD Application will not reach Synced/Healthy, or reports Synced while unhealthy."
+    signals:
+      error_text:
+        - "OutOfSync"
+        - "ComparisonError"
+        - "SyncFailed"
+        - "another operation is already in progress"
+        - "argocd-application-controller"
+        - "argocd-repo-server"
+    runbook: "runbooks/ecosystem/argocd-sync-failure.md"
+    first_command: "kubectl get application <app> -n argocd -o jsonpath='{.status.sync.status}{\"\\t\"}{.status.health.status}{\"\\n\"}'"
+
+  - id: "service-mesh-sidecar-missing"
+    summary: "A pod is missing its expected mesh sidecar, or the sidecar itself is failing."
+    signals:
+      error_text:
+        - "istio-proxy"
+        - "linkerd-proxy"
+        - "sidecar injection"
+        - "istio-init"
+    runbook: "runbooks/ecosystem/service-mesh-sidecar.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl get pod <pod> -n <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{\"\\n\"}{end}'"
+
+  - id: "service-mesh-mtls-failure"
+    summary: "Sidecars are healthy but traffic fails due to mTLS policy, not connectivity."
+    signals:
+      error_text:
+        - "upstream connect error or disconnect/reset before headers"
+        - "PeerAuthentication"
+        - "connection reset by peer"
+        - "UF,URX"
+    runbook: "runbooks/ecosystem/service-mesh-mtls.md"
+    first_command: "kubectl get peerauthentication -n <namespace> -o yaml"
+
+  - id: "cert-manager-stuck-issuing"
+    summary: "A cert-manager Certificate never becomes Ready — issuance, not expiry."
+    signals:
+      error_text:
+        - "cert-manager"
+        - "CertificateRequest"
+        - "Order is pending"
+        - "Challenge is pending"
+        - "too many certificates already issued"
+        - "reason: Issuing"
+    runbook: "runbooks/ecosystem/cert-manager-issuance.md"
+    first_command: "kubectl get clusterissuer -o wide"
