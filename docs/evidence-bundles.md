@@ -168,7 +168,7 @@ the safety tiers in docs/safety-model.md. Do not suggest any command above
 SAFE_DIAGNOSTIC without telling me the blast radius first.
 ```
 
-See [ai-integration.md](ai-integration.md) for the exact setup per platform.
+See [usage guides](usage/README.md) for the exact setup per platform.
 
 ---
 

@@ -146,13 +146,19 @@ Good starting points:
 
 ### Option 2: Use It With an AI Assistant
 
-Load one of the integration files into your assistant:
+Each platform has a detailed guide with setup, permissions, a worked end-to-end
+session, and integration troubleshooting — start at
+[docs/usage/](docs/usage/README.md):
 
-- **Antigravity AI**: copy `integrations/antigravity/SKILL.md` into your Antigravity skills folder or run with this repository as the active workspace.
-- **Claude Code**: point Claude to `integrations/claude/CLAUDE.md`.
-- **Cursor**: add `integrations/cursor/.cursorrules` to your project root.
-- **ChatGPT / Generic LLM**: copy `integrations/generic/system-prompt.md` into your LLM client.
-- **GitHub Copilot**: use `integrations/copilot/instructions.md` as repository instructions.
+| Platform | Guide | Preset |
+| :--- | :--- | :--- |
+| Claude Code | [docs/usage/claude-code.md](docs/usage/claude-code.md) | `integrations/claude/CLAUDE.md` |
+| Antigravity | [docs/usage/antigravity.md](docs/usage/antigravity.md) | `integrations/antigravity/SKILL.md` |
+| Cursor | [docs/usage/cursor.md](docs/usage/cursor.md) | `integrations/cursor/.cursorrules` |
+| MCP clients | [docs/usage/mcp.md](docs/usage/mcp.md) | `integrations/mcp/server.py` |
+| ChatGPT | [docs/usage/chatgpt.md](docs/usage/chatgpt.md) | `integrations/chatgpt/instructions.md` |
+| GitHub Copilot | [docs/usage/copilot.md](docs/usage/copilot.md) | `integrations/copilot/instructions.md` |
+| Any other LLM | [docs/usage/generic-llm.md](docs/usage/generic-llm.md) | `integrations/generic/system-prompt.md` |
 
 Then ask a concrete diagnostic question, for example:
 

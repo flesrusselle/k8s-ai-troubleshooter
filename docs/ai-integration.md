@@ -6,15 +6,17 @@
 
 ## 🤖 Supported Integration Targets
 
-| AI Platform | Preset File Location | Integration Method |
+| AI Platform | Preset File Location | Detailed Guide |
 | :--- | :--- | :--- |
-| **Antigravity AI** | `integrations/antigravity/SKILL.md` | Skill folder loading |
-| **Claude Code** | `integrations/claude/CLAUDE.md` | Repository instructions |
-| **Cursor** | `integrations/cursor/.cursorrules` | Project rules file |
-| **ChatGPT** | `integrations/chatgpt/instructions.md` | Custom GPT / Project Instructions |
-| **GitHub Copilot** | `integrations/copilot/instructions.md` | Copilot Workspace instructions |
-| **Generic AI** | `integrations/generic/system-prompt.md` | Portable System Prompt |
-| **MCP Clients** | `integrations/mcp/server.py` | Model Context Protocol Server |
+| **Antigravity AI** | `integrations/antigravity/SKILL.md` | [usage/antigravity.md](usage/antigravity.md) |
+| **Claude Code** | `integrations/claude/CLAUDE.md` | [usage/claude-code.md](usage/claude-code.md) |
+| **Cursor** | `integrations/cursor/.cursorrules` | [usage/cursor.md](usage/cursor.md) |
+| **ChatGPT** | `integrations/chatgpt/instructions.md` | [usage/chatgpt.md](usage/chatgpt.md) |
+| **GitHub Copilot** | `integrations/copilot/instructions.md` | [usage/copilot.md](usage/copilot.md) |
+| **Generic AI** | `integrations/generic/system-prompt.md` | [usage/generic-llm.md](usage/generic-llm.md) |
+| **MCP Clients** | `integrations/mcp/server.py` | [usage/mcp.md](usage/mcp.md) |
+
+Start at the [usage index](usage/README.md) if you are not sure which mode fits.
 
 ---
 
