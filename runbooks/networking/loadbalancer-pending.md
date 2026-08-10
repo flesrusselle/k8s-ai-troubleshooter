@@ -108,10 +108,28 @@ quota, tag the subnets, grant the missing IAM permissions, or expand the MetalLB
 address pool. For local development, `NodePort` or `kubectl port-forward` avoids
 the dependency entirely.
 
+## Blast Radius
+Provisioning a load balancer creates a billable cloud resource and usually a
+public endpoint. Switching a Service to `NodePort` changes how it is exposed and
+may bypass controls attached to the load balancer.
+
 ## Human Approval Required
 - `kubectl apply -f <metallb-config>.yaml`
 - `kubectl patch service <name> -n <ns> -p '{"spec":{"type":"NodePort"}}'` — changes how the Service is exposed
 - Cloud-side quota or IAM changes — outside the cluster, and outside this project's scope
+
+## Verification
+```bash
+kubectl get service <service> -n <namespace>
+```
+Verified when `EXTERNAL-IP` shows an address and traffic reaches the backend from
+outside the cluster. An assigned IP proves provisioning succeeded, not that
+routing works — test the path end-to-end.
+
+## Rollback
+Reverting the Service type releases the load balancer, which usually releases
+its public IP permanently. If that address was in DNS or an allowlist, plan for
+it not coming back.
 
 ## Related Runbooks
 - [ingress.md](ingress.md)

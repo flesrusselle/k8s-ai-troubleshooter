@@ -110,9 +110,30 @@ Fix the dependency the init container is waiting for, correct its image or
 applies — remove it from the pod spec. Do not "fix" a failing init container by
 deleting it if it guards data integrity, such as a schema migration.
 
+## Blast Radius
+Fixing the dependency an init container waits on usually affects the
+dependency's own consumers, not just this pod. Removing an init container
+removes whatever precondition it enforced — if it guarded a schema migration,
+that is a data-integrity change, not a scheduling one.
+
 ## Human Approval Required
 - `kubectl rollout restart deployment/<name> -n <namespace>`
 - `kubectl apply -f <corrected-manifest>.yaml`
+
+## Verification
+```bash
+kubectl get pod <pod-name> -n <namespace> \
+  -o jsonpath='{.status.initContainerStatuses[*].state}{"\n"}'
+```
+Verified when every init container reports `terminated` with `exitCode: 0` and
+the pod advances to `Running`. Watch the transition rather than sampling once —
+an init container that succeeds and then fails on a later restart looks
+identical at a single point in time.
+
+## Rollback
+Restore the previous pod template with `kubectl rollout undo`. If an init
+container was removed and it guarded a migration or precondition, rolling back
+restores the guard but not any state changed while it was absent.
 
 ## Related Runbooks
 - [crashloopbackoff.md](crashloopbackoff.md)

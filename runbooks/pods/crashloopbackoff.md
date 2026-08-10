@@ -77,9 +77,29 @@ Confirm root cause by verifying error stack trace in `--previous` logs against a
 ## Remediation
 Update application configuration, fix environment secrets, or adjust container limits.
 
+## Blast Radius
+`rollout restart` replaces every pod in the Deployment, not just the crashing
+one. Expect brief unavailability proportional to `maxUnavailable`. A config or
+secret change affects every pod consuming it, which may include workloads you
+are not looking at.
+
 ## Human Approval Required
 - `kubectl rollout restart deployment/<deployment-name> -n <namespace>`
 - `helm upgrade <release-name> <chart> -f values.yaml`
+
+## Verification
+```bash
+kubectl get pod <pod-name> -n <namespace> -w
+```
+The restart count must stop climbing and the pod must reach `Running` and stay
+there for longer than its previous crash interval. A pod that survives 30
+seconds when it previously crashed in 2 has not necessarily recovered — compare
+against the old lifetime, not against zero.
+
+## Rollback
+`kubectl rollout undo deployment/<name> -n <namespace>` returns the previous
+pod template. It does not undo a ConfigMap or Secret edit, so if the fix was a
+config change, revert that separately and restart again.
 
 ## Related Runbooks
 - [oomkilled.md](oomkilled.md)

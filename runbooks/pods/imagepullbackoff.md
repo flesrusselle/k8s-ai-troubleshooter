@@ -58,9 +58,30 @@ Verify whether the image tag exists in the remote registry and credentials match
 ## Remediation
 Correct image tag in manifest or recreate `imagePullSecret` in namespace.
 
+## Blast Radius
+Correcting an image tag replaces every pod in the workload. Creating or
+updating an `imagePullSecret` affects every pod in the namespace that references
+it. If the registry itself is down, no manifest change helps and the change adds
+churn during an incident.
+
 ## Human Approval Required
 - `kubectl create secret docker-registry ...`
 - `kubectl apply -f manifest.yaml`
+
+## Verification
+```bash
+kubectl get pod <pod-name> -n <namespace> \
+  -o jsonpath='{.status.containerStatuses[*].state}{"\n"}'
+kubectl describe pod <pod-name> -n <namespace> | grep -E 'Pulled|Successfully'
+```
+Verified when a `Successfully pulled image` event appears and the container
+reaches `running`. A `Pulled` event referencing a cached image does not prove
+registry access was restored — force a node that has never held the image.
+
+## Rollback
+Revert the image tag with `kubectl rollout undo`. A deleted or rotated
+`imagePullSecret` cannot be un-rotated; it must be recreated with valid
+credentials.
 
 ## Related Runbooks
 - [find-failing-pods.md](find-failing-pods.md)

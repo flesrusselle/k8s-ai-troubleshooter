@@ -54,8 +54,28 @@ Confirm resource ownership via annotations and `helm list` cross-reference.
 ## Remediation
 Update parameters in Helm `values.yaml` rather than editing live Kubernetes objects.
 
+## Blast Radius
+Editing ownership annotations changes which release manages a resource. Get it
+wrong and two releases believe they own one object, or none does — the second
+case leaves the resource orphaned and unmanaged by any subsequent upgrade.
+
 ## Human Approval Required
 - `helm upgrade <release-name> <chart> -f values.yaml` (**HUMAN APPROVAL REQUIRED**)
+
+## Verification
+```bash
+kubectl get <resource> <name> -n <namespace> \
+  -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}{"\n"}'
+helm upgrade --dry-run <release> <chart> -n <namespace>
+```
+Verified when the annotation names the intended release and a dry-run upgrade
+completes without an ownership error. Use the dry run — it is the whole point of
+having one.
+
+## Rollback
+Restore the previous annotation values. A resource adopted into the wrong
+release will be modified or deleted by that release's next operation, so correct
+ownership before running any further Helm command.
 
 ## Related Runbooks
 - [helm-troubleshooting.md](helm-troubleshooting.md)

@@ -70,8 +70,27 @@ Confirm DNS functionality using a safe diagnostic lookup test.
 ## Remediation
 Fix upstream `/etc/resolv.conf` forwarding loop or adjust CoreDNS ConfigMap.
 
+## Blast Radius
+CoreDNS serves the entire cluster. Restarting it, editing its ConfigMap, or
+scaling it affects name resolution for every pod — including ones that are
+currently healthy. Treat any CoreDNS change as cluster-wide.
+
 ## Human Approval Required
 - `kubectl rollout restart deployment coredns -n kube-system` (**HUMAN APPROVAL REQUIRED**)
+
+## Verification
+```bash
+kubectl run dnscheck --rm -it --restart=Never --image=busybox:1.36 -n <namespace> \
+  -- nslookup kubernetes.default.svc.cluster.local
+```
+Verified when resolution succeeds from a pod in the affected namespace, not just
+from the CoreDNS pod itself. Test both a cluster name and an external name — they
+take different paths through the Corefile.
+
+## Rollback
+Restore the previous CoreDNS ConfigMap and restart the deployment. A malformed
+Corefile will crash-loop CoreDNS and take cluster DNS down entirely, so keep a
+copy of the working ConfigMap before editing it.
 
 ## Related Runbooks
 - [endpoints.md](endpoints.md)

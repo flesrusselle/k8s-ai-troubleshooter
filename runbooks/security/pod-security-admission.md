@@ -112,9 +112,30 @@ genuinely needs a privilege — a CNI agent, a node exporter — exempt it
 deliberately by running it in a namespace labelled `privileged`, rather than
 lowering the level of a shared namespace.
 
+## Blast Radius
+Changing a namespace's enforce level applies to every workload in it, and can
+reject workloads that are currently running the next time they are recreated —
+turning a quiet change into an outage at the next node drain rather than
+immediately.
+
 ## Human Approval Required
 - `kubectl apply -f <hardened-manifest>.yaml`
 - `kubectl label namespace <ns> pod-security.kubernetes.io/enforce=<level>` — changes policy for every workload in the namespace
+
+## Verification
+```bash
+kubectl label --dry-run=server --overwrite ns <namespace> \
+  pod-security.kubernetes.io/enforce=<level>
+kubectl get pods -n <namespace>
+```
+Verified when the dry-run reports no violations and the previously rejected
+workload creates pods. Run the dry-run before enforcing, not after — it lists
+every workload that would be rejected, which is exactly the plan you need.
+
+## Rollback
+Restore the previous namespace labels. Pods created under a relaxed level keep
+running; they are only re-evaluated on recreation, so the exposure persists
+quietly until then.
 
 ## Related Runbooks
 - [rbac-forbidden.md](rbac-forbidden.md)

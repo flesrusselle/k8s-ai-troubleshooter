@@ -108,10 +108,31 @@ stuck `Terminating`, resolve its finalizer or runtime hang. For workloads that
 hit this on every deploy, set `strategy: Recreate`. Where genuine concurrent
 access is required, move to a `ReadWriteMany` storage class.
 
+## Blast Radius
+Force-deleting a pod that still holds a volume risks filesystem corruption if
+the original writer is alive — this is one of the few remediations in this
+repository that can destroy data rather than availability. Changing strategy to
+`Recreate` means every future deploy has downtime by design.
+
 ## Human Approval Required
 - `kubectl delete pod <stuck-pod> -n <namespace>` — **DESTRUCTIVE**, and forcing it can risk data corruption if the old writer is still alive
 - `kubectl patch deployment <name> -n <ns> -p '{"spec":{"strategy":{"type":"Recreate"}}}'`
 - `kubectl delete volumeattachment <name>` — **DESTRUCTIVE**, only for a confirmed-dead node; deleting a live attachment can corrupt the filesystem
+
+## Verification
+```bash
+kubectl get volumeattachment | grep <pv-name>
+kubectl get pod <pod-name> -n <namespace> -o wide
+```
+Verified when exactly one `VolumeAttachment` exists for the volume, naming the
+node the running pod is on, and the pod is `Running`. Two attachments, or one
+naming a node with no pod, means the situation is not resolved.
+
+## Rollback
+A deleted `VolumeAttachment` is recreated automatically by the attach
+controller when the volume is legitimately needed. Data corrupted by a
+concurrent-writer force-detach is **not** recoverable — restore from backup.
+Reverting `strategy` to `RollingUpdate` reinstates the deadlock.
 
 ## Related Runbooks
 - [mount-failure.md](mount-failure.md)

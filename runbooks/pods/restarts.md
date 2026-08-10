@@ -53,8 +53,27 @@ Match termination timestamps with application log entries or resource spikes.
 ## Remediation
 Fix underlying instability, increase resource limits, or tune probe thresholds.
 
+## Blast Radius
+Depends entirely on the cause found. Restart churn is a symptom; the
+remediation belongs to whichever runbook the underlying cause routes to, and
+carries that runbook's blast radius.
+
 ## Human Approval Required
 - Deployment rollout restart or manifest update.
+
+## Verification
+```bash
+kubectl get pods -n <namespace> \
+  -o custom-columns='POD:.metadata.name,RESTARTS:.status.containerStatuses[0].restartCount'
+```
+Verified when the restart count is stable across an interval longer than the
+previous mean time between restarts. Record the count and the time; a count that
+has not moved in five minutes proves nothing about a pod that restarted hourly.
+
+## Rollback
+Roll back whatever change was applied. Restart *history* is not reversible —
+the counter only resets when the pod object is replaced, so a high count on a
+now-healthy pod is not evidence of an ongoing problem.
 
 ## Related Runbooks
 - [crashloopbackoff.md](crashloopbackoff.md)

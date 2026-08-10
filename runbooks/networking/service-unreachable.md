@@ -115,10 +115,29 @@ to match `containerPort`, repair the readiness probe so healthy pods are
 admitted to the endpoint set, or amend the NetworkPolicy that is dropping the
 traffic.
 
+## Blast Radius
+Depends on the hop repaired. Selector and label changes re-route live traffic;
+`targetPort` changes affect every caller of the Service; readiness probe changes
+affect which pods receive traffic across the whole workload.
+
 ## Human Approval Required
 - `kubectl apply -f <corrected-service>.yaml`
 - `kubectl label pod <pod> <key>=<value> -n <namespace>`
 - `kubectl rollout restart deployment/<name> -n <namespace>`
+
+## Verification
+```bash
+kubectl get endpoints <service> -n <namespace>
+kubectl run netcheck --rm -it --restart=Never --image=busybox:1.36 -n <namespace> \
+  -- wget -qO- --timeout=5 http://<service>.<namespace>.svc.cluster.local
+```
+Verified when the request succeeds repeatedly. Repetition matters: with several
+backends, a single success can hit a healthy endpoint while a broken one remains
+in rotation. Send at least as many requests as there are endpoints.
+
+## Rollback
+Restore the previous Service definition or pod labels. If traffic was
+temporarily routed to an unintended backend, any writes it accepted persist.
 
 ## Related Runbooks
 - [endpoints.md](endpoints.md)

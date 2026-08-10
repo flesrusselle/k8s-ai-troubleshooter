@@ -111,10 +111,30 @@ release a held rollout. Where startup order genuinely does not matter, switching
 to `podManagementPolicy: Parallel` prevents one pod from blocking the rest, but
 this must be a deliberate choice for the workload.
 
+## Blast Radius
+StatefulSet changes proceed one ordinal at a time and can take a long while.
+Deleting a PVC destroys that ordinal's data permanently. Switching to
+`podManagementPolicy: Parallel` changes startup ordering for every replica,
+which some clustered applications depend on for correctness.
+
 ## Human Approval Required
 - `kubectl rollout restart statefulset/<name> -n <namespace>`
 - `kubectl patch statefulset <name> -n <ns> -p '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":0}}}}'`
 - `kubectl delete pvc <claim> -n <namespace>` — **DESTRUCTIVE**, destroys the volume's data
+
+## Verification
+```bash
+kubectl get statefulset <name> -n <namespace>
+kubectl get pods -n <namespace> -l app=<label> --sort-by=.metadata.name
+```
+Verified when `READY` matches the desired replica count and every ordinal is
+Running and Ready in sequence. Check the application's own clustering state too
+— a quorum-based system can have all pods Ready and still be unhealthy.
+
+## Rollback
+`kubectl rollout undo statefulset/<name>` restores the previous template.
+Deleted PVCs cannot be restored. `podManagementPolicy` is immutable, so
+reversing it requires recreating the StatefulSet.
 
 ## Related Runbooks
 - [../storage/pvc-pending.md](../storage/pvc-pending.md)

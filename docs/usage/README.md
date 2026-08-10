@@ -120,4 +120,5 @@ assistant's context window ends up wherever that provider stores it.
 - [safety-model.md](../safety-model.md) — the four tiers and what gates each
 - [ai-integration.md](../ai-integration.md) — the mandatory response schema
 - [evidence-bundles.md](../evidence-bundles.md) — redaction and collection
+- [reference/](../reference/README.md) — exit codes, pod states, event reasons
 - [../../runbooks/triage.md](../../runbooks/triage.md) — where a session starts

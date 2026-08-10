@@ -113,10 +113,31 @@ Restore the webhook's pods, renew and re-publish its certificate, or raise
 deleted to unblock the cluster — this disables the policy it enforces, so treat
 it as an incident action with an explicit follow-up to restore it.
 
+## Blast Radius
+Deleting a webhook configuration disables its policy for the entire cluster —
+every namespace, every workload, immediately. With `failurePolicy: Fail` the
+webhook's outage is already cluster-wide, which is precisely why this deletion is
+tempting during an incident and why it needs a tracked restoration.
+
 ## Human Approval Required
 - `kubectl apply -f <webhook-configuration>.yaml`
 - `kubectl rollout restart deployment/<webhook> -n <webhook-namespace>`
 - `kubectl delete validatingwebhookconfiguration <name>` — **DESTRUCTIVE**, disables policy enforcement cluster-wide
+
+## Verification
+```bash
+kubectl get endpoints -n <webhook-namespace> <webhook-service>
+kubectl apply --dry-run=server -f <a-representative-manifest>.yaml
+```
+Verified when the webhook's Service has endpoints and a server-side dry-run
+apply succeeds. Dry-run is the right check because it exercises the admission
+path without creating anything.
+
+## Rollback
+Reapply the webhook configuration from source control. Objects admitted while
+the webhook was disabled were **not** validated or mutated — they may violate
+the policy and will not be re-checked until they are next modified. Audit what
+was created during the window.
 
 ## Related Runbooks
 - [rbac-forbidden.md](rbac-forbidden.md)

@@ -55,8 +55,27 @@ Confirm probe failure reason by comparing application logs with probe execution 
 ## Remediation
 Adjust probe delays/timeouts or fix application health endpoint handler.
 
+## Blast Radius
+Loosening a liveness probe reduces the cluster's ability to detect a genuinely
+hung container — that is a real reduction in self-healing, not a free change.
+Tightening one risks killing healthy pods under load. Both affect every replica.
+
 ## Human Approval Required
 - Manifest update or `helm upgrade`.
+
+## Verification
+```bash
+kubectl describe pod <pod-name> -n <namespace> | grep -A3 -E 'Liveness|Readiness'
+kubectl get events -n <namespace> --field-selector reason=Unhealthy
+```
+Verified when no new `Unhealthy` events appear across a full traffic cycle
+including peak. A probe that passes at low traffic and fails at peak has not
+been fixed, and the failure will return with load.
+
+## Rollback
+Restore the previous probe definition with `kubectl rollout undo`. If the probe
+was masking a slow-starting application, rolling back reinstates the restart
+loop — the startup time is the underlying issue.
 
 ## Related Runbooks
 - [endpoints.md](../networking/endpoints.md)

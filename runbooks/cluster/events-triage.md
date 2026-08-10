@@ -120,9 +120,24 @@ Events triage produces a routing decision, not a fix. Follow the runbook the
 dominant reason routes to, and apply that runbook's remediation with its own
 approval gate.
 
+## Blast Radius
+None — this runbook only reads. The remediation it routes to carries its own
+blast radius, which must be read before acting.
+
 ## Human Approval Required
 None — every command here is read-only. Remediation reached through routing
 inherits the approval requirements of its own runbook.
+
+## Verification
+Triage is verified when the event timeline supports a single coherent
+explanation: an initiating warning, and a cascade that follows from it. If
+several unrelated first causes remain, you have more than one incident and
+should treat them separately.
+
+## Rollback
+Nothing to roll back. Note that events expire in about an hour, so capture
+them before remediating — otherwise the evidence for what happened is gone by
+the time anyone asks.
 
 ## Related Runbooks
 - [../triage.md](../triage.md)

@@ -111,10 +111,29 @@ Add the missing toleration, label the nodes the workload expects, relax
 or set `whenUnsatisfiable: ScheduleAnyway` where even distribution is a
 preference rather than a requirement.
 
+## Blast Radius
+Node labels and taints affect scheduling for every workload, not just the one
+being debugged. A `NoExecute` taint evicts running pods immediately. Relaxing a
+`required` affinity rule may place a workload somewhere it was deliberately kept
+away from — a compliance boundary, a licensed node, a GPU pool.
+
 ## Human Approval Required
 - `kubectl apply -f <manifest-with-tolerations>.yaml`
 - `kubectl label node <node> <key>=<value>`
 - `kubectl taint node <node> <key>=<value>:NoExecute` — **evicts running pods immediately**
+
+## Verification
+```bash
+kubectl get pod <pod-name> -n <namespace> -o wide
+```
+Verified when the pod has a `NODE` assignment and the node is the kind you
+intended. Scheduled is not the same as correctly placed: check the node's labels
+before treating placement as success.
+
+## Rollback
+Reapply the removed taint or restore the original affinity rules. Pods
+scheduled while a constraint was relaxed stay where they are until rescheduled —
+relaxing a rule then restoring it does not move them back.
 
 ## Related Runbooks
 - [../pods/pending.md](../pods/pending.md)

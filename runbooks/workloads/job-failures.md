@@ -114,10 +114,29 @@ match real runtime, unsuspend the CronJob, correct the cron expression, or set
 `concurrencyPolicy: Forbid` for jobs that must not overlap. Set
 `ttlSecondsAfterFinished` to stop pod accumulation.
 
+## Blast Radius
+Manually triggering a Job runs real work — it may write to databases, send
+messages, or charge money. Deleting a Job removes its history and its pods,
+taking the logs with them. Unsuspending a CronJob can trigger catch-up runs.
+
 ## Human Approval Required
 - `kubectl create job --from=cronjob/<name> <name>-manual -n <namespace>` — runs real work
 - `kubectl patch cronjob <name> -n <ns> -p '{"spec":{"suspend":false}}'`
 - `kubectl delete job <name> -n <namespace>` — **DESTRUCTIVE**, discards job history
+
+## Verification
+```bash
+kubectl get jobs -n <namespace>
+kubectl logs -n <namespace> -l job-name=<job-name> --tail=50
+```
+Verified when the Job reports `COMPLETIONS 1/1` and its logs show the work
+actually finished. Exit code 0 is not sufficient: a script that swallows errors
+reports success while doing nothing.
+
+## Rollback
+A Job that has run cannot be un-run. Re-suspending a CronJob stops future
+occurrences but does not stop one already in flight — delete the active Job for
+that.
 
 ## Related Runbooks
 - [../pods/crashloopbackoff.md](../pods/crashloopbackoff.md)

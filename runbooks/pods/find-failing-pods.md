@@ -66,8 +66,25 @@ Confirm failure reason by running `kubectl describe pod` and checking recent eve
 ## Remediation
 Refer to specific pod failure runbook (e.g. `crashloopbackoff.md`, `oomkilled.md`).
 
+## Blast Radius
+None — this runbook only surveys. Each failure it finds carries the blast
+radius of its own remediation.
+
 ## Human Approval Required
 Any workload restart or spec modification requires explicit human approval.
+
+## Verification
+```bash
+kubectl get pods --all-namespaces --field-selector=status.phase!=Running
+```
+Verified when the failing set is empty, or when every remaining entry is
+explained and expected — `Completed` Job pods are not failures. Compare against
+the count you started with rather than judging the list in isolation.
+
+## Rollback
+Nothing to roll back. If the survey missed failures, widen it: pods that are
+`Running` but not `Ready` do not appear under a phase filter and must be found
+by comparing the `READY` column.
 
 ## Related Runbooks
 - [crashloopbackoff.md](crashloopbackoff.md)

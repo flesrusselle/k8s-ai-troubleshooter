@@ -67,9 +67,27 @@ Identify exact error code in Ingress controller log mapped to backend pod IP.
 ## Remediation
 Fix backend application crash, adjust readiness probe, or update proxy timeout annotation.
 
+## Blast Radius
+Ingress changes affect every route on that host, and controller-level changes
+affect every Ingress in the cluster. A bad annotation can take down unrelated
+applications sharing the controller.
+
 ## Human Approval Required
 - `kubectl annotate ingress <ingress-name> -n <namespace> ...`
 - `helm upgrade <ingress-controller-release>`
+
+## Verification
+```bash
+kubectl describe ingress <ingress> -n <namespace>
+curl -sS -o /dev/null -w '%{http_code}\n' https://<host>/<path>
+```
+Verified when the expected status code is returned end-to-end from outside the
+cluster, not just from inside it. Test the specific path that was failing —
+another path on the same host proves nothing about this rule.
+
+## Rollback
+Reapply the previous Ingress manifest. Cached DNS and certificate state can
+outlive the rollback, so allow for TTL before concluding it did not work.
 
 ## Related Runbooks
 - [endpoints.md](endpoints.md)

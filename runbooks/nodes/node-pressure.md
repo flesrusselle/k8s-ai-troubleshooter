@@ -50,8 +50,26 @@ Confirm host resource pressure metrics against kubelet eviction thresholds.
 ## Remediation
 Prune unused container images, clear host log files, or expand volume size.
 
+## Blast Radius
+Relieving pressure by evicting or rescheduling workloads moves load onto other
+nodes, which can spread the pressure rather than remove it. Changing kubelet
+eviction thresholds affects every workload on that node.
+
 ## Human Approval Required
 - Host SSH cleanup commands or node replacement.
+
+## Verification
+```bash
+kubectl describe node <node> | grep -A8 Conditions
+kubectl top node <node>
+```
+Verified when `MemoryPressure`, `DiskPressure` and `PIDPressure` all read `False`
+and stay false under normal load. Pressure conditions flap, so sample across a
+period rather than once.
+
+## Rollback
+Workloads moved off the node can be rescheduled back, but eviction itself is
+not reversible. Restored eviction thresholds take effect on kubelet restart.
 
 ## Related Runbooks
 - [evicted.md](../pods/evicted.md)

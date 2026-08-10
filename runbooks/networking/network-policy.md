@@ -51,8 +51,27 @@ Verify rule matching by inspecting NetworkPolicy YAML specs against pod and name
 ## Remediation
 Apply updated NetworkPolicy rule allowing target port traffic.
 
+## Blast Radius
+Adding or removing a NetworkPolicy changes reachability for every pod its
+selector matches. Removing a default-deny exposes an entire namespace. This is a
+security boundary, not only a connectivity setting.
+
 ## Human Approval Required
 - `kubectl apply -f networkpolicy.yaml` (**HUMAN APPROVAL REQUIRED**)
+
+## Verification
+```bash
+kubectl run nettest --rm -it --restart=Never --image=busybox:1.36 -n <namespace> \
+  -- wget -qO- --timeout=5 http://<service>.<namespace>.svc.cluster.local
+```
+Verified when the intended traffic succeeds **and** traffic that should still be
+blocked is still blocked. Verifying only the first half converts a connectivity
+incident into a security incident.
+
+## Rollback
+Reapply the previous policy. Any connection permitted during the window
+already happened; if the policy guarded sensitive data, treat the exposure as
+real rather than theoretical.
 
 ## Related Runbooks
 - [coredns.md](coredns.md)

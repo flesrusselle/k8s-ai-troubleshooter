@@ -106,10 +106,30 @@ run everywhere, a blanket `operator: Exists` toleration is legitimate — but it
 also means the pod will run on nodes that are deliberately cordoned, so use it
 only for genuinely cluster-wide agents.
 
+## Blast Radius
+A DaemonSet change rolls across every node it targets. Adding a broad
+toleration places the agent on nodes that were deliberately isolated, including
+cordoned ones. Removing a taint affects scheduling for every workload, not just
+this DaemonSet.
+
 ## Human Approval Required
 - `kubectl apply -f <daemonset>.yaml`
 - `kubectl label node <node> <key>=<value>`
 - `kubectl taint node <node> <key>-` — removing a taint affects every workload's scheduling
+
+## Verification
+```bash
+kubectl get daemonset <name> -n <namespace> -o wide
+kubectl get pods -n <namespace> -l <selector> -o wide
+```
+Verified when `DESIRED` equals the number of nodes that should run the agent and
+`READY` equals `DESIRED`. `DESIRED` matching alone means the controller intends
+to place pods, not that they are running.
+
+## Rollback
+`kubectl rollout undo daemonset/<name> -n <namespace>` restores the previous
+template. A removed taint must be reapplied explicitly, and pods scheduled onto
+the node while it was absent will not leave on their own.
 
 ## Related Runbooks
 - [../scheduling/taints-affinity.md](../scheduling/taints-affinity.md)

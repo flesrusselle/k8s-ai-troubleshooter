@@ -72,9 +72,29 @@ Verify whether node conditions or pod failures correlate across namespaces.
 ## Remediation
 Varies based on isolated root cause (node repair, CNI restart, capacity addition).
 
+## Blast Radius
+Control plane changes affect every workload in the cluster. Nothing in this
+runbook should be treated as routine; a mistaken component restart is a
+cluster-wide outage.
+
 ## Human Approval Required
 - `kubectl rollout restart daemonset -n kube-system`
-- Node cordon or drain commands: `kubectl cordon <node>`, `kubectl drain <node>`
+- `kubectl cordon <node>` — stops new scheduling onto the node
+- `kubectl drain <node>` — **DESTRUCTIVE**, evicts every pod on the node
+
+## Verification
+```bash
+kubectl get --raw='/readyz?verbose'
+kubectl get nodes
+```
+Verified when `/readyz` reports `ok` for every check and all nodes are `Ready`.
+Confirm a real workload operation succeeds too — a healthy control plane that
+cannot schedule pods is not a healthy cluster.
+
+## Rollback
+Control plane rollback is provider-specific and outside this repository's
+scope. Restore from your cluster's documented recovery procedure; etcd state in
+particular cannot be rolled back by reapplying manifests.
 
 ## Related Runbooks
 - [find-failing-pods.md](../pods/find-failing-pods.md)

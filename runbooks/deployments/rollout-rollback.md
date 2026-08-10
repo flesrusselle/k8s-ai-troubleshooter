@@ -112,11 +112,33 @@ Roll back to the last known-good revision if the new one is the confirmed cause
 and the release had no irreversible side effects. Otherwise fix forward. Record
 a `CHANGE-CAUSE` on the next release so the same investigation is cheaper.
 
+## Blast Radius
+A rollback replaces every pod, exactly like the deploy that caused the
+problem. It does not undo side effects: completed database migrations, published
+messages, and mutated external state persist. For a release that migrated a
+schema, rolling back the code can be worse than the bug.
+
 ## Human Approval Required
 - `kubectl rollout undo deployment/<name> -n <namespace>` — replaces every running pod
 - `kubectl rollout undo deployment/<name> --to-revision=<n> -n <namespace>`
 - `kubectl rollout pause deployment/<name> -n <namespace>` — freezes a partial rollout, leaving both versions serving
 - `kubectl rollout restart deployment/<name> -n <namespace>`
+
+## Verification
+```bash
+kubectl rollout status deployment/<name> -n <namespace>
+kubectl get pods -n <namespace> -l app=<label> \
+  -o custom-columns='POD:.metadata.name,REVISION:.metadata.labels.pod-template-hash,READY:.status.conditions[?(@.type=="Ready")].status'
+```
+Verified when every pod carries the target revision's `pod-template-hash`, all
+are Ready, and the symptom that prompted the rollback is measurably gone. Pod
+health alone does not prove the user-facing problem was resolved.
+
+## Rollback
+A rollback is itself rolled back with another `rollout undo`, since each
+creates a new revision. Irreversible side effects of the original release remain
+irreversible in both directions — establish whether any exist before choosing
+rollback over fixing forward.
 
 ## Related Runbooks
 - [deployment-stuck.md](deployment-stuck.md)

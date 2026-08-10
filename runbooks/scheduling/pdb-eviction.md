@@ -107,12 +107,31 @@ written as `minAvailable: <replica count>`. Deleting the PDB removes the
 protection cluster-wide for that workload and should be a last resort during an
 incident, with restoration tracked.
 
+## Blast Radius
+Deleting or loosening a PDB removes availability protection for that workload
+cluster-wide, including during unrelated future maintenance. `--disable-eviction`
+bypasses every PDB on the node at once and can take a service to zero replicas.
+
 ## Human Approval Required
 - `kubectl scale deployment/<name> --replicas=<n+1> -n <namespace>`
 - `kubectl patch pdb <name> -n <ns> --type=merge -p '{"spec":{"minAvailable":<n>}}'`
-- `kubectl drain <node> --delete-emptydir-data --ignore-daemonsets` — evicts workloads
+- `kubectl drain <node> --delete-emptydir-data --ignore-daemonsets` — **DESTRUCTIVE**, evicts every pod on the node
 - `kubectl drain <node> --disable-eviction` — **DESTRUCTIVE**, bypasses PDBs entirely
 - `kubectl delete pdb <name> -n <namespace>` — **DESTRUCTIVE**, removes availability protection
+
+## Verification
+```bash
+kubectl get pdb <name> -n <namespace>
+kubectl get pods -n <namespace> -l <selector> -o wide
+```
+Verified when `ALLOWED DISRUPTIONS` is at least 1 and the drain proceeds. Confirm
+the workload still has its intended replica count afterwards — a drain that
+succeeded by taking a service below its floor is not a success.
+
+## Rollback
+Restore the original `minAvailable`/`maxUnavailable`, or recreate a deleted
+PDB. Pods evicted during the window are not returned; they were rescheduled
+elsewhere if capacity allowed, and are simply gone if it did not.
 
 ## Related Runbooks
 - [../nodes/node-not-ready.md](../nodes/node-not-ready.md)

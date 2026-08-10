@@ -121,10 +121,30 @@ managed clusters, or re-authentication for user credentials. Update any
 `caBundle` that references a rotated CA. Set an expiry alert afterwards —
 recurrence is otherwise certain.
 
+## Blast Radius
+Certificate renewal restarts control plane components and briefly interrupts
+API availability. Updating a `caBundle` affects every request the webhook
+intercepts — cluster-wide, for the duration.
+
 ## Human Approval Required
 - Certificate renewal on control plane nodes — **DESTRUCTIVE**, requires component restarts and is performed outside this repository's read-only scope
 - `kubectl apply -f <updated-webhook-config>.yaml`
 - `kubectl delete secret <tls-secret> -n <ns>` to force cert-manager reissue — **DESTRUCTIVE**
+
+## Verification
+```bash
+echo | openssl s_client -connect <api-server-host>:6443 2>/dev/null \
+  | openssl x509 -noout -dates
+kubectl get nodes
+```
+Verified when `notAfter` is comfortably in the future and normal operations
+succeed for every affected client. Set an expiry alert as part of the fix —
+without one, recurrence is certain rather than likely.
+
+## Rollback
+Renewal cannot be undone, and the old certificate remains expired. Keep the
+previous CA bundle until the new chain is confirmed working, since an incorrect
+`caBundle` breaks every intercepted request at once.
 
 ## Related Runbooks
 - [api-server-unreachable.md](api-server-unreachable.md)

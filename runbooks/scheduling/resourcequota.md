@@ -109,10 +109,30 @@ the rejected pod, raise the quota, or lower `maxSurge` so the rollout fits.
 Raising a quota is a capacity decision for the namespace owner, not a workaround
 to apply silently.
 
+## Blast Radius
+Raising a quota permits more consumption across the whole namespace and may
+push the cluster over capacity. Deleting workloads to reclaim quota removes
+running services. Adding a LimitRange default silently applies to every pod
+created afterwards.
+
 ## Human Approval Required
 - `kubectl apply -f <manifest-with-resources>.yaml`
 - `kubectl patch resourcequota <name> -n <ns> --type=merge -p '{"spec":{"hard":{...}}}'`
 - `kubectl delete deployment <name> -n <namespace>` to reclaim — **DESTRUCTIVE**
+
+## Verification
+```bash
+kubectl describe resourcequota -n <namespace>
+kubectl get deployment <name> -n <namespace>
+```
+Verified when `USED` sits below `HARD` with headroom for a rollout's `maxSurge`,
+and the previously rejected workload reaches its desired replica count. Fitting
+exactly leaves you unable to deploy.
+
+## Rollback
+Restore the previous quota with `kubectl patch`. Workloads deleted to reclaim
+quota must be recreated from their manifests — the quota change alone does not
+bring them back.
 
 ## Related Runbooks
 - [../pods/pending.md](../pods/pending.md)

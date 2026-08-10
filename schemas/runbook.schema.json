@@ -70,10 +70,23 @@
       "minItems": 1
     },
     "confirmation": {
-      "type": "string"
+      "type": "string",
+      "description": "How to confirm the ROOT CAUSE before acting. Distinct from verification, which checks the fix afterwards."
     },
     "remediation": {
       "type": "string"
+    },
+    "blast_radius": {
+      "type": "string",
+      "description": "What the remediation affects, and for how long. Stated before approval is requested, so the operator is deciding with the cost in view."
+    },
+    "verification": {
+      "type": "string",
+      "description": "Observable evidence that the fix worked. A remediation with no verification step is a hope, not a fix."
+    },
+    "rollback": {
+      "type": "string",
+      "description": "How to undo the remediation, and what it cannot undo. Some fixes have irreversible side effects; saying so is part of the answer."
     },
     "human_approval_required": {
       "type": "array",

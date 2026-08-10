@@ -120,10 +120,30 @@ the kubeconfig context or server URL, restore network access such as a VPN, or �
 for a genuinely down control plane — follow your provider's recovery procedure.
 Node-level control plane recovery is outside this project's read-only scope.
 
+## Blast Radius
+Switching context changes which cluster every subsequent command targets — the
+most common way an intended staging change lands in production. Certificate and
+control plane work affects every client of the cluster simultaneously.
+
 ## Human Approval Required
 - Re-authentication commands are provider-specific and run by the operator, not by an assistant.
 - `kubectl config use-context <context>` — changes which cluster subsequent commands target
 - Any control plane restart or certificate renewal on a node — **DESTRUCTIVE**, performed outside this repository's scope
+
+## Verification
+```bash
+kubectl config current-context
+kubectl get --raw='/livez'
+kubectl get nodes
+```
+Verified when `/livez` returns `ok` **and** `current-context` is the cluster you
+intended. Verifying connectivity without verifying the context is how the wrong
+cluster gets modified.
+
+## Rollback
+Re-select the previous context with `kubectl config use-context`. Any command
+already executed against the wrong cluster has taken effect there and must be
+reverted on that cluster, not this one.
 
 ## Related Runbooks
 - [cluster-health.md](cluster-health.md)

@@ -61,9 +61,30 @@ Confirm whether underlying Kubernetes workload resources failed or Helm chart ho
 ## Remediation
 Roll back release to last stable revision or clear release lock.
 
+## Blast Radius
+`helm upgrade` can replace, recreate or delete resources depending on the
+chart's diff — including PersistentVolumeClaims in some charts. `helm rollback`
+carries the same risk in reverse. Review the diff before either.
+
 ## Human Approval Required
 - `helm rollback <release-name> <revision-number> -n <namespace>` (**HUMAN APPROVAL REQUIRED**)
 - `helm uninstall <release-name> -n <namespace>` (**DESTRUCTIVE — HUMAN APPROVAL REQUIRED**)
+
+## Verification
+```bash
+helm status <release> -n <namespace>
+helm history <release> -n <namespace>
+kubectl get pods -n <namespace>
+```
+Verified when `helm status` reports `deployed`, the newest revision is the one
+you intended, and the underlying pods are healthy. A `deployed` release with
+failing pods means Helm succeeded and the workload did not.
+
+## Rollback
+`helm rollback <release> <revision> -n <namespace>` returns the previous
+manifest as a new revision. It does not restore data deleted by the failed
+upgrade, and it cannot recover a release whose history was pruned by
+`--history-max`.
 
 ## Related Runbooks
 - [helm-ownership.md](helm-ownership.md)

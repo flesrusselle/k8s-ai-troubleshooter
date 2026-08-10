@@ -115,10 +115,29 @@ Set CPU and memory requests on the target workload, install or repair
 stabilization window if the workload is flapping. If pods are Pending after
 scale-up, the fix belongs to cluster capacity, not the HPA.
 
+## Blast Radius
+Raising `maxReplicas` allows the workload to consume substantially more
+cluster capacity and cost. Adding resource requests changes scheduling for every
+replica. Manual scaling while an HPA is active causes the two to fight.
+
 ## Human Approval Required
 - `kubectl apply -f <deployment-with-requests>.yaml`
 - `kubectl patch hpa <name> -n <ns> -p '{"spec":{"maxReplicas":20}}'`
 - `kubectl scale deployment/<name> --replicas=<n> -n <ns>` — conflicts with the HPA while it is active
+
+## Verification
+```bash
+kubectl get hpa <name> -n <namespace>
+kubectl get pods -n <namespace> -l app=<label>
+```
+Verified when `TARGETS` shows a real percentage rather than `<unknown>`, and
+replica count responds to load in both directions. Scaling up is the easy half —
+confirm it also scales down after the stabilization window.
+
+## Rollback
+Restore the previous `minReplicas`/`maxReplicas` with `kubectl patch`. Pods
+created by scaling are removed on scale-down. Removing resource requests returns
+the HPA to `<unknown>` and stops autoscaling entirely.
 
 ## Related Runbooks
 - [../pods/pending.md](../pods/pending.md)

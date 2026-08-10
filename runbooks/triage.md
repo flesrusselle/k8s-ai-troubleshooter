@@ -125,10 +125,25 @@ Triage performs no remediation. It selects the runbook that does. Follow the
 routed runbook's own Remediation section, which carries the approval gate
 appropriate to that fix.
 
+## Blast Radius
+Triage itself has none — every command is read-only. The blast radius of the
+*routed* remediation is stated in the runbook that owns it, and must be read
+before acting on it.
+
 ## Human Approval Required
 None — every command in this runbook is read-only. Any remediation reached
 through routing inherits the approval requirements of its own runbook, and those
 still apply.
+
+## Verification
+Triage succeeded when you can state, in one sentence, whether the fault is
+workload-scoped, node-scoped, or cluster-scoped, and name the runbook you are
+opening next. If you cannot, you have not finished scoping — do not proceed to
+depth.
+
+## Rollback
+Nothing to roll back. If routing led to the wrong runbook, return here and
+re-scope rather than continuing down a path that does not fit the evidence.
 
 ## Related Runbooks
 - [find-failing-pods.md](pods/find-failing-pods.md)

@@ -79,7 +79,7 @@ The AI assistant follows this deterministic path:
 ```text
 k8s-ai-troubleshooter/
 ├── symptom-index.yaml        # Signal → Runbook Router (the entry point)
-├── docs/                     # Architectural, Safety, Helm & Authoring Guides
+├── docs/                     # Architecture, Safety, Usage Guides & Reference Tables
 ├── runbooks/                 # Diagnostic Runbooks (start at runbooks/triage.md)
 ├── decision-trees/           # Machine-Readable YAML Decision Trees
 ├── commands/                 # Classified Command Catalogs (kubectl, Helm)
@@ -98,6 +98,12 @@ k8s-ai-troubleshooter/
 | `scripts/redact.py` | Strip secrets from cluster output while preserving diagnostic detail |
 | `scripts/safety.py` | Classify any `kubectl` / `helm` command into a safety tier |
 | `scripts/validate.py` | Structural validation of runbooks, schemas, routing and links |
+
+### Reference tables
+
+Lookup tables mapping raw Kubernetes signals to their meaning and runbook:
+[exit codes](docs/reference/exit-codes.md), [pod states](docs/reference/pod-states.md),
+[event reasons](docs/reference/event-reasons.md).
 
 ---
 

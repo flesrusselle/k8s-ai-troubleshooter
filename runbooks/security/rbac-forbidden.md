@@ -110,10 +110,31 @@ Grant the minimum missing rule. Prefer a namespaced Role and RoleBinding over a
 ClusterRole; prefer adding one verb over adding a wildcard. `cluster-admin` is
 never the answer to a specific denial.
 
+## Blast Radius
+A ClusterRoleBinding grants across every namespace, including ones the
+requester has nothing to do with. Over-granting here is a durable security
+change that outlives the incident, and is rarely revisited once the immediate
+problem stops.
+
 ## Human Approval Required
 - `kubectl apply -f <role>.yaml`
 - `kubectl create rolebinding <name> --role=<role> --serviceaccount=<ns>:<sa> -n <ns>`
 - `kubectl create clusterrolebinding ...` — grants cluster-wide, review carefully
+
+## Verification
+```bash
+kubectl auth can-i <verb> <resource> -n <namespace> \
+  --as=system:serviceaccount:<namespace>:<serviceaccount>
+```
+Verified when the impersonated check returns `yes` and the workload stops
+logging denials. Also verify the grant is not broader than intended: run
+`kubectl auth can-i --list` for the same identity and read what else it can now
+do.
+
+## Rollback
+Delete the Role or binding that was added. Actions taken with the elevated
+permission cannot be undone — if a service account created or deleted objects
+while over-privileged, audit that separately.
 
 ## Related Runbooks
 - [../pods/crashloopbackoff.md](../pods/crashloopbackoff.md)

@@ -26,16 +26,27 @@ def validate_schemas():
             json.load(f)
     print("✅ JSON Schemas are valid.")
 
+# Ordered as the investigation runs: identify, diagnose, conclude, then act.
+# Blast Radius precedes Human Approval Required so the operator is deciding with
+# the cost in view; Verification and Rollback follow it, because a remediation
+# with no way to check it worked, and no way back, is not a complete answer.
+#
+# tests/test_runbooks.py imports this list rather than restating it, so the
+# validator and the test suite cannot disagree about what a runbook must contain.
+REQUIRED_RUNBOOK_SECTIONS = [
+    "# ", "## Purpose", "## When to Use", "## Safety Level",
+    "## Symptoms", "## Quick Diagnosis", "## Detailed Investigation",
+    "## Decision Tree", "## Evidence to Collect", "## Root Cause Patterns",
+    "## Confirmation", "## Remediation", "## Blast Radius",
+    "## Human Approval Required", "## Verification", "## Rollback",
+    "## Related Runbooks", "## Official Documentation",
+]
+
+
 def validate_runbooks():
     runbooks_dir = REPO_ROOT / "runbooks"
-    required_sections = [
-        "# ", "## Purpose", "## When to Use", "## Safety Level",
-        "## Symptoms", "## Quick Diagnosis", "## Detailed Investigation",
-        "## Decision Tree", "## Evidence to Collect", "## Root Cause Patterns",
-        "## Confirmation", "## Remediation", "## Human Approval Required",
-        "## Related Runbooks", "## Official Documentation"
-    ]
-    
+    required_sections = REQUIRED_RUNBOOK_SECTIONS
+
     count = 0
     for file_path in runbooks_dir.rglob("*.md"):
         count += 1
