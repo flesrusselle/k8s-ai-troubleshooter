@@ -75,8 +75,11 @@ entries:
     decision_tree: "decision-trees/pod-failure.yaml"
     first_command: "kubectl describe pod <pod> -n <namespace>"
 
+  # Capacity exhaustion only. Taint, affinity and topology signals belong to
+  # scheduling-constraints below — the two have different fixes, and listing the
+  # same signal in both makes routing a coin toss.
   - id: "pod-pending"
-    summary: "Pod is accepted but not scheduled onto any node."
+    summary: "Pod is accepted but not scheduled, because the cluster is out of resources."
     signals:
       pod_phase: ["Pending"]
       status_column: ["Pending"]
@@ -85,8 +88,8 @@ entries:
         - "0/*, nodes are available"
         - "Insufficient cpu"
         - "Insufficient memory"
-        - "didn't match Pod's node affinity"
-        - "had untolerated taint"
+        - "Insufficient ephemeral-storage"
+        - "Insufficient pods"
     runbook: "runbooks/pods/pending.md"
     decision_tree: "decision-trees/pod-failure.yaml"
     first_command: "kubectl describe pod <pod> -n <namespace>"
@@ -279,3 +282,241 @@ entries:
     runbook: "runbooks/helm/helm-ownership.md"
     decision_tree: "decision-trees/helm.yaml"
     first_command: "kubectl get <resource> <name> -n <namespace> -o jsonpath='{.metadata.annotations}'"
+
+  # ---- Workloads ----------------------------------------------------------
+
+  - id: "init-container-failure"
+    summary: "An init container fails before the application container ever starts."
+    signals:
+      pod_waiting_reason: ["PodInitializing"]
+      status_column: ["Init:Error", "Init:CrashLoopBackOff", "Init:ImagePullBackOff", "Init:0/1", "PodInitializing"]
+      error_text:
+        - "Init:"
+        - "init container"
+    runbook: "runbooks/pods/init-containers.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl logs <pod> -n <namespace> -c <init-container>"
+
+  - id: "job-failure"
+    summary: "A Job exhausts its retries, or a CronJob does not schedule."
+    signals:
+      event_reason: ["BackoffLimitExceeded", "DeadlineExceeded", "FailedNeedsStart", "TooManyMissedTimes"]
+      error_text:
+        - "Job has reached the specified backoff limit"
+        - "exceeded the deadline"
+        - "Cannot determine if job needs to be started"
+        - "too many missed start time"
+    runbook: "runbooks/workloads/job-failures.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl describe job <name> -n <namespace>"
+
+  - id: "statefulset-stuck"
+    summary: "A StatefulSet stops progressing at one ordinal."
+    signals:
+      error_text:
+        - "statefulset"
+        - "ordinal"
+        - "volumeClaimTemplates"
+        - "updateStrategy partition"
+    runbook: "runbooks/workloads/statefulset-stuck.md"
+    decision_tree: "decision-trees/storage.yaml"
+    first_command: "kubectl describe statefulset <name> -n <namespace>"
+
+  - id: "daemonset-gap"
+    summary: "A DaemonSet does not place a pod on every node it should."
+    signals:
+      error_text:
+        - "daemonset"
+        - "desired number of nodes"
+        - "node not covered"
+    runbook: "runbooks/workloads/daemonset-not-scheduling.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl describe daemonset <name> -n <namespace>"
+
+  - id: "hpa-not-scaling"
+    summary: "A HorizontalPodAutoscaler will not scale, or reports unknown metrics."
+    signals:
+      event_reason: ["FailedGetResourceMetric", "FailedComputeMetricsReplicas", "FailedGetExternalMetric"]
+      error_text:
+        - "unable to get metrics for resource"
+        - "missing request for"
+        - "did not receive metrics"
+        - "<unknown>/"
+    runbook: "runbooks/workloads/hpa-not-scaling.md"
+    first_command: "kubectl describe hpa <name> -n <namespace>"
+
+  # ---- Security & admission -----------------------------------------------
+
+  - id: "rbac-forbidden"
+    summary: "The API server authenticated the caller and denied the action."
+    signals:
+      error_text:
+        - "is forbidden"
+        - "cannot list resource"
+        - "cannot get resource"
+        - "cannot create resource"
+        - "User \"system:serviceaccount"
+        - "RBAC: access denied"
+    runbook: "runbooks/security/rbac-forbidden.md"
+    first_command: "kubectl auth can-i --list -n <namespace>"
+
+  - id: "admission-webhook-failure"
+    summary: "An admission webhook denied the request, timed out, or is unreachable."
+    signals:
+      error_text:
+        - "failed calling webhook"
+        - "admission webhook"
+        - "denied the request"
+        - "no endpoints available for service"
+        - "context deadline exceeded"
+    runbook: "runbooks/security/admission-webhook.md"
+    first_command: "kubectl get validatingwebhookconfigurations"
+
+  - id: "pod-security-admission"
+    summary: "Pod Security Admission rejected the pod for violating a policy level."
+    signals:
+      event_reason: ["FailedCreate"]
+      error_text:
+        - "violates PodSecurity"
+        - "allowPrivilegeEscalation != false"
+        - "runAsNonRoot != true"
+        - "unrestricted capabilities"
+        - "seccompProfile"
+    runbook: "runbooks/security/pod-security-admission.md"
+    first_command: "kubectl get namespace <namespace> -o jsonpath='{.metadata.labels}'"
+
+  # ---- Scheduling ---------------------------------------------------------
+
+  - id: "scheduling-constraints"
+    summary: "Taints, affinity or topology spread prevent scheduling — not capacity."
+    signals:
+      error_text:
+        - "had untolerated taint"
+        - "didn't match Pod's node affinity"
+        - "didn't match pod anti-affinity rules"
+        - "didn't match pod topology spread constraints"
+        - "had volume node affinity conflict"
+        - "node(s) didn't match node selector"
+    runbook: "runbooks/scheduling/taints-affinity.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  - id: "resourcequota-exceeded"
+    summary: "ResourceQuota or LimitRange rejected the workload at admission."
+    signals:
+      event_reason: ["FailedCreate"]
+      error_text:
+        - "exceeded quota"
+        - "must specify limits"
+        - "must specify requests"
+        - "maximum memory usage per Container"
+        - "minimum cpu usage per Container"
+        - "forbidden: exceeded quota"
+    runbook: "runbooks/scheduling/resourcequota.md"
+    first_command: "kubectl describe resourcequota -n <namespace>"
+
+  - id: "pdb-blocking-eviction"
+    summary: "A PodDisruptionBudget is blocking a drain, upgrade or scale-down."
+    signals:
+      event_reason: ["EvictionBlocked"]
+      error_text:
+        - "Cannot evict pod as it would violate the pod's disruption budget"
+        - "disruption budget"
+        - "cannot scale down"
+        - "error when evicting"
+    runbook: "runbooks/scheduling/pdb-eviction.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl get pdb --all-namespaces"
+
+  # ---- Networking ---------------------------------------------------------
+
+  - id: "service-unreachable"
+    summary: "Pod-to-service connectivity fails somewhere in the four-hop path."
+    signals:
+      error_text:
+        - "connection refused"
+        - "no route to host"
+        - "upstream connect error"
+        - "ENDPOINTS   <none>"
+    runbook: "runbooks/networking/service-unreachable.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl get endpoints <service> -n <namespace>"
+
+  - id: "loadbalancer-pending"
+    summary: "A LoadBalancer Service never receives an external IP."
+    signals:
+      event_reason: ["SyncLoadBalancerFailed", "EnsuringLoadBalancer"]
+      error_text:
+        - "EXTERNAL-IP   <pending>"
+        - "SyncLoadBalancerFailed"
+        - "could not find any suitable subnets"
+        - "failed to ensure load balancer"
+    runbook: "runbooks/networking/loadbalancer-pending.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl describe service <service> -n <namespace>"
+
+  # ---- Storage ------------------------------------------------------------
+
+  - id: "multi-attach"
+    summary: "A ReadWriteOnce volume is still attached to another node."
+    signals:
+      event_reason: ["FailedAttachVolume"]
+      error_text:
+        - "Multi-Attach error for volume"
+        - "Volume is already exclusively attached to one node"
+        - "volume is already used by pod"
+    runbook: "runbooks/storage/multi-attach.md"
+    decision_tree: "decision-trees/storage.yaml"
+    first_command: "kubectl get volumeattachment"
+
+  # ---- Cluster & control plane --------------------------------------------
+
+  - id: "api-server-unreachable"
+    summary: "kubectl itself cannot reach or authenticate to the cluster."
+    signals:
+      error_text:
+        - "The connection to the server"
+        - "Unable to connect to the server"
+        - "was refused - did you specify the right host or port"
+        - "You must be logged in to the server"
+        - "Unauthorized"
+    runbook: "runbooks/cluster/api-server-unreachable.md"
+    first_command: "kubectl cluster-info"
+
+  - id: "certificate-expiry"
+    summary: "An expired or untrusted TLS certificate is breaking connections."
+    signals:
+      error_text:
+        - "x509: certificate has expired"
+        - "x509: certificate signed by unknown authority"
+        - "certificate is not yet valid"
+        - "tls: bad certificate"
+        - "certificate has expired or is not yet valid"
+    runbook: "runbooks/cluster/certificate-expiry.md"
+    first_command: "kubectl get certificates --all-namespaces"
+
+  - id: "events-triage"
+    summary: "Many failures at once; a timeline is needed to separate cause from cascade."
+    signals:
+      error_text:
+        - "multiple failures"
+        - "what happened first"
+        - "incident timeline"
+        - "many alerts firing"
+    runbook: "runbooks/cluster/events-triage.md"
+    first_command: "kubectl get events --all-namespaces --sort-by=.metadata.creationTimestamp"
+
+  # ---- Deployments --------------------------------------------------------
+
+  - id: "bad-release"
+    summary: "A release made things worse; decide between rollback and fixing forward."
+    signals:
+      error_text:
+        - "after the deploy"
+        - "bad release"
+        - "rollback"
+        - "new version failing"
+        - "regression after rollout"
+    runbook: "runbooks/deployments/rollout-rollback.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl rollout history deployment/<name> -n <namespace>"

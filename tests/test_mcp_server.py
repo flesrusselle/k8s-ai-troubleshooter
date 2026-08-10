@@ -178,6 +178,38 @@ class TestSymptomRouting(unittest.TestCase):
         self.assertFalse(result["matched"])
         self.assertEqual(result["routes"][0]["runbook"], "runbooks/triage.md")
 
+    def test_capacity_and_constraint_failures_route_differently(self):
+        """
+        Both produce FailedScheduling, and they have different fixes: one needs
+        capacity, the other needs a toleration or label. Listing the same signal
+        under both entries makes the choice a coin toss.
+        """
+        capacity = route_symptom("0/5 nodes are available: 5 Insufficient memory")
+        constraint = route_symptom(
+            "0/12 nodes are available: 8 node(s) had untolerated taint"
+        )
+        self.assertEqual(capacity["routes"][0]["runbook"], "runbooks/pods/pending.md")
+        self.assertEqual(
+            constraint["routes"][0]["runbook"], "runbooks/scheduling/taints-affinity.md"
+        )
+
+    def test_newly_covered_signals_resolve_to_their_own_runbook(self):
+        expected = {
+            "violates PodSecurity": "runbooks/security/pod-security-admission.md",
+            "Cannot evict pod as it would violate the pod's disruption budget":
+                "runbooks/scheduling/pdb-eviction.md",
+            "Multi-Attach error for volume": "runbooks/storage/multi-attach.md",
+            "is forbidden": "runbooks/security/rbac-forbidden.md",
+            "x509: certificate has expired": "runbooks/cluster/certificate-expiry.md",
+            "Init:CrashLoopBackOff": "runbooks/pods/init-containers.md",
+            "exceeded quota": "runbooks/scheduling/resourcequota.md",
+            "failed calling webhook": "runbooks/security/admission-webhook.md",
+            "BackoffLimitExceeded": "runbooks/workloads/job-failures.md",
+        }
+        for signal, runbook in expected.items():
+            with self.subTest(signal=signal):
+                self.assertEqual(route_symptom(signal)["routes"][0]["runbook"], runbook)
+
     def test_every_route_carries_a_first_command(self):
         for signal in ["CrashLoopBackOff", "FailedMount", "Evicted", "unmatched"]:
             with self.subTest(signal=signal):
