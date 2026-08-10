@@ -14,8 +14,15 @@ Every proposed runbook must satisfy the following checks:
 - [ ] Structured decision tree reference or steps.
 - [ ] Root cause patterns with evidence indicators.
 - [ ] Clear separation between **DIAGNOSIS** (read-only) and **REMEDIATION** (human approval required).
+- [ ] **Blast Radius**: what the remediation affects and for how long, stated before the approval gate.
+- [ ] **Verification**: observable evidence the fix worked, including what would count as a false pass.
+- [ ] **Rollback**: how to undo it, and what specifically cannot be undone.
+- [ ] Added to `symptom-index.yaml` with at least one signal — an unrouted runbook fails CI.
 - [ ] Official documentation links (Kubernetes / Helm docs). No dead links.
 - [ ] Validated against `schemas/runbook.schema.json`.
+
+See `docs/runbook-authoring.md` for what distinguishes Blast Radius/Verification/
+Rollback from the existing Confirmation section, and for common mistakes.
 
 ---
 
@@ -40,6 +47,21 @@ python3 -m unittest discover tests
 # 2. Run structural validation script
 python3 scripts/validate.py
 ```
+
+If your change touches `scripts/collect.py`, `symptom-index.yaml`, or a
+runbook's Quick Diagnosis commands, also run the integration suite against a
+real cluster. It induces actual failures (CrashLoopBackOff, a tainted node, an
+unbound PVC) and checks the real signal Kubernetes emits routes correctly —
+the offline suite above only proves the matching logic is correct against
+strings chosen by hand.
+
+```bash
+# Requires kind + a running Docker daemon. Creates and destroys its own
+# disposable cluster; never touches an existing one.
+./scripts/integration/run_kind_tests.sh
+```
+
+This also runs in CI as a separate `kind-integration-tests` job.
 
 ---
 

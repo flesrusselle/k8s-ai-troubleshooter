@@ -88,7 +88,8 @@ k8s-ai-troubleshooter/
 ├── integrations/             # Presets for Antigravity, Claude Code, Cursor, ChatGPT, Copilot, MCP
 ├── examples/                 # Real-World Diagnostic Session Examples
 ├── scripts/                  # Redaction, Evidence Collection, Safety & Validation
-└── tests/                    # Python Validation Test Suite
+├── scripts/integration/      # Runner for the kind-based integration suite
+└── tests/                    # Python Test Suite (tests/integration/ needs a real cluster)
 ```
 
 ### Key scripts
