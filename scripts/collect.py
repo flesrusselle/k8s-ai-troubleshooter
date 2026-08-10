@@ -30,6 +30,7 @@ Two integrity properties, both enforced in code rather than by convention:
 
 import argparse
 import datetime
+import json
 import shutil
 import subprocess
 import sys
@@ -151,36 +152,92 @@ def run_command(command, timeout=60):
     return result.returncode == 0, output
 
 
+def _pod_status_reasons(pod):
+    """Collect every waiting/terminated reason and the top-level status reason."""
+    status = pod.get("status", {}) or {}
+    reasons = []
+    if status.get("reason"):
+        reasons.append(status["reason"])
+
+    for key in ("initContainerStatuses", "containerStatuses"):
+        for cs in status.get(key) or []:
+            state = cs.get("state") or {}
+            waiting = state.get("waiting") or {}
+            if waiting.get("reason"):
+                reasons.append(waiting["reason"])
+            terminated = state.get("terminated") or {}
+            term_reason = terminated.get("reason")
+            if term_reason and (terminated.get("exitCode", 0) != 0 or term_reason != "Completed"):
+                reasons.append(term_reason)
+    return reasons
+
+
+def _pod_is_unhealthy(pod):
+    """
+    True if `pod` (a decoded `kubectl get pod -o json` item) is not healthy.
+
+    Mirrors the same states scripts/collect.py's UNHEALTHY_MARKERS and
+    symptom-index.yaml already key decisions on, read directly from the
+    structured fields those decisions are actually made from, rather than
+    from kubectl's rendered STATUS/READY columns.
+    """
+    metadata = pod.get("metadata", {}) or {}
+    status = pod.get("status", {}) or {}
+    phase = status.get("phase", "Unknown")
+
+    if phase == "Succeeded":
+        return False
+    if phase in ("Pending", "Failed", "Unknown"):
+        return True
+    if metadata.get("deletionTimestamp"):
+        return True  # Terminating
+
+    if any(reason in UNHEALTHY_MARKERS for reason in _pod_status_reasons(pod)):
+        return True
+
+    if phase == "Running":
+        container_statuses = status.get("containerStatuses") or []
+        if container_statuses and not all(cs.get("ready") for cs in container_statuses):
+            return True  # Running but not fully Ready — hidden by STATUS alone
+
+    return False
+
+
 def find_unhealthy_pods(namespace=None, all_namespaces=False):
-    """Return [(namespace, pod)] for pods not in a healthy Running/Completed state."""
+    """
+    Return [(namespace, pod)] for pods that are not healthy.
+
+    Reads pod JSON rather than parsing kubectl's printed STATUS/READY columns.
+    That column text is not a stable API — it has changed across kubectl
+    versions and varies with custom printer columns — while `status.phase`,
+    `containerStatuses[].ready`, and the waiting/terminated `reason` fields are
+    the same structured source every other decision in this project already
+    keys on (symptom-index.yaml, docs/reference/pod-states.md).
+    """
     if all_namespaces:
-        command = "kubectl get pods --all-namespaces --no-headers"
+        command = "kubectl get pods --all-namespaces -o json"
     elif namespace:
-        command = f"kubectl get pods -n {namespace} --no-headers"
+        command = f"kubectl get pods -n {namespace} -o json"
     else:
-        command = "kubectl get pods --no-headers"
+        command = "kubectl get pods -o json"
 
     ok, output = run_command(command)
     if not ok:
         return []
 
-    pods = []
-    for line in output.splitlines():
-        fields = line.split()
-        if all_namespaces:
-            if len(fields) < 4:
-                continue
-            ns, name, ready, status = fields[0], fields[1], fields[2], fields[3]
-        else:
-            if len(fields) < 3:
-                continue
-            ns, name, ready, status = namespace or "default", fields[0], fields[1], fields[2]
+    try:
+        payload = json.loads(output)
+    except json.JSONDecodeError:
+        return []
 
-        unhealthy = any(marker in status for marker in UNHEALTHY_MARKERS)
-        if not unhealthy and "/" in ready:
-            got, _, want = ready.partition("/")
-            unhealthy = got != want and status != "Completed"
-        if unhealthy:
+    pods = []
+    for pod in payload.get("items", []):
+        if not _pod_is_unhealthy(pod):
+            continue
+        metadata = pod.get("metadata", {}) or {}
+        name = metadata.get("name")
+        ns = metadata.get("namespace") or namespace or "default"
+        if name:
             pods.append((ns, name))
     return pods
 

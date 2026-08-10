@@ -84,6 +84,7 @@ k8s-ai-troubleshooter/
 ├── decision-trees/           # Machine-Readable YAML Decision Trees
 ├── commands/                 # Classified Command Catalogs (kubectl, Helm)
 ├── schemas/                  # JSON Schemas for Runbooks, Trees, Commands & Index
+├── manifests/rbac/           # Least-privilege ClusterRole for running this tool
 ├── integrations/             # Presets for Antigravity, Claude Code, Cursor, ChatGPT, Copilot, MCP
 ├── examples/                 # Real-World Diagnostic Session Examples
 ├── scripts/                  # Redaction, Evidence Collection, Safety & Validation
@@ -121,6 +122,12 @@ kubectl config current-context
 ```
 
 `kubectl` must already be authenticated to the target cluster. This repository does not create credentials, store kubeconfigs, or connect to a cluster by itself.
+
+**Recommended:** bind the identity running this tool to the least-privilege
+`ClusterRole` in [`manifests/rbac/`](manifests/rbac/README.md), rather than
+using a personal or cluster-admin kubeconfig. It grants exactly the verbs this
+project's own safety classification calls read-only — enforced by the API
+server itself, not only by application logic.
 
 ### Collect evidence first (recommended)
 

@@ -191,6 +191,41 @@ def validate_symptom_index():
     print(f"✅ Symptom index routes {len(entries)} signals to {len(routed)} runbooks; no orphans.")
 
 
+def validate_rbac_manifests():
+    """
+    Parse every manifest under manifests/rbac/ and check the two properties
+    that matter for a role advertised as least-privilege: it is valid YAML
+    with the fields RBAC requires, and no rule grants a mutating verb. The
+    conformance test in tests/test_rbac_manifest.py additionally checks that
+    the manifest covers every command scripts/collect.py actually runs.
+    """
+    import yaml
+
+    rbac_dir = REPO_ROOT / "manifests" / "rbac"
+    if not rbac_dir.exists():
+        raise FileNotFoundError(f"Missing RBAC manifests directory: {rbac_dir}")
+
+    mutating_verbs = {"create", "update", "patch", "delete", "deletecollection"}
+    checked = 0
+
+    for path in sorted(rbac_dir.glob("*.yaml")):
+        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(doc, dict) or "kind" not in doc:
+            raise ValueError(f"{path.name}: not a single Kubernetes manifest document")
+        checked += 1
+
+        if doc["kind"] != "ClusterRole":
+            continue
+        for rule in doc.get("rules", []):
+            leaked = set(rule.get("verbs", [])) & mutating_verbs
+            if leaked:
+                raise ValueError(
+                    f"{path.name}: rule for {rule.get('resources')} grants mutating verb(s) {leaked}"
+                )
+
+    print(f"✅ {checked} RBAC manifests are valid, and none grant a mutating verb.")
+
+
 def main():
     print("🔍 Running k8s-ai-troubleshooter validation suite...")
     checks = [
@@ -198,6 +233,7 @@ def main():
         validate_runbooks,
         validate_command_catalogs,
         validate_symptom_index,
+        validate_rbac_manifests,
         validate_links,
     ]
 

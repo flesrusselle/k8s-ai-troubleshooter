@@ -1,0 +1,89 @@
+# Least-privilege ClusterRole for k8s-ai-troubleshooter.
+#
+# Grants exactly the verbs and resources scripts/collect.py and the runbooks'
+# Quick Diagnosis commands use — nothing more. There is no "edit", "patch",
+# "create", "delete" verb anywhere in this file; that is the whole point.
+#
+# This role INCLUDES secret read access. See ../README.md#secrets-and-helm
+# before binding it — Helm's own release storage lives in Secrets by default,
+# so `helm list`/`status`/`get`/`history` cannot function without it, and this
+# grants full secret VALUE read to anything bound to this role, not merely the
+# names the collector chooses to display. If your team does not run Helm and
+# wants a stricter boundary, bind clusterrole-readonly-no-secrets.yaml instead.
+#
+# Every rule here is traced to a real command in scripts/collect.py or
+# commands/*.yaml. tests/test_rbac_manifest.py asserts that mapping does not
+# drift — a resource added to the tool's command plan without a matching rule
+# here fails CI, and a rule here with no corresponding command is flagged too.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-ai-troubleshooter-readonly
+  labels:
+    app.kubernetes.io/name: k8s-ai-troubleshooter
+    app.kubernetes.io/component: rbac
+rules:
+  # --- Cluster-scoped: nodes, namespaces, cluster-wide storage -------------
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "volumeattachments"]
+    verbs: ["get", "list", "watch"]
+
+  # --- Namespaced: workloads -------------------------------------------------
+  - apiGroups: [""]
+    resources: ["pods", "events", "services", "endpoints",
+                "persistentvolumeclaims", "configmaps",
+                "resourcequotas", "limitranges", "componentstatuses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+
+  # --- Pod logs — a subresource, not the pods rule above ---------------------
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+  # --- Secrets — see the module docstring and ../README.md before binding ----
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+
+  # --- Admission — read the webhook configs that can turn a bad deploy into
+  #     a cluster-wide outage ---------------------------------------------
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["get", "list"]
+
+  # --- Metrics — `kubectl top`. A separate API group (metrics.k8s.io), served
+  #     by metrics-server; absent metrics-server, these rules are inert and
+  #     `kubectl top` fails with a clear "metrics not available" rather than
+  #     Forbidden -------------------------------------------------------------
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+
+  # --- Non-resource URLs: cluster-info, version, and health endpoints used by
+  #     runbooks/cluster/api-server-unreachable.md. Only a ClusterRole can
+  #     grant nonResourceURLs — a namespaced Role cannot. Most clusters already
+  #     allow these via system:discovery / system:public-info-viewer; declared
+  #     explicitly here so this role is self-sufficient without relying on
+  #     defaults that vary by distribution -------------------------------
+  - nonResourceURLs: ["/healthz", "/healthz/*", "/livez", "/livez/*",
+                      "/readyz", "/readyz/*", "/version", "/api", "/api/*",
+                      "/apis", "/apis/*"]
+    verbs: ["get"]

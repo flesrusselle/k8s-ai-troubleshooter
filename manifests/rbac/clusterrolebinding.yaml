@@ -1,0 +1,30 @@
+# Binds the ServiceAccount to the readonly ClusterRole cluster-wide.
+#
+# To scope to specific namespaces instead of the whole cluster, replace this
+# with a RoleBinding per namespace referencing the same ClusterRole (a
+# ClusterRole can be bound namespace-scoped via a RoleBinding; it does not
+# have to be bound cluster-wide). Note the cluster-scoped rules in the role
+# (nodes, namespaces, persistentvolumes, storageclasses, volumeattachments,
+# componentstatuses, the non-resource URLs) grant nothing under a namespaced
+# RoleBinding — a Role/RoleBinding cannot authorize cluster-scoped resources
+# regardless of what the referenced ClusterRole contains. Triage and node
+# runbooks will be unavailable under a namespace-scoped binding.
+#
+# To use the no-secrets variant, change roleRef.name to
+# k8s-ai-troubleshooter-readonly-no-secrets after applying that ClusterRole
+# instead of (or in addition to) clusterrole-readonly.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-ai-troubleshooter-readonly
+  labels:
+    app.kubernetes.io/name: k8s-ai-troubleshooter
+    app.kubernetes.io/component: rbac
+subjects:
+  - kind: ServiceAccount
+    name: k8s-ai-troubleshooter
+    namespace: k8s-ai-troubleshooter
+roleRef:
+  kind: ClusterRole
+  name: k8s-ai-troubleshooter-readonly
+  apiGroup: rbac.authorization.k8s.io

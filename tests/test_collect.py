@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -84,39 +85,105 @@ class TestUnhealthyPodDetection(unittest.TestCase):
     def tearDown(self):
         collect.run_command = self._original
 
-    def _stub(self, output):
-        collect.run_command = lambda command, timeout=60: (True, output)
+    def _stub_pods(self, pods):
+        payload = json.dumps({"items": pods})
+        collect.run_command = lambda command, timeout=60: (True, payload)
 
-    def test_detects_failing_states(self):
-        self._stub(
-            "web-1     0/1   CrashLoopBackOff   7    5m\n"
-            "web-2     1/1   Running            0    5m\n"
-            "job-x     0/1   Completed          0    1h\n"
-            "img-1     0/1   ImagePullBackOff   0    2m\n"
-        )
+    def _stub_raw(self, output, ok=True):
+        collect.run_command = lambda command, timeout=60: (ok, output)
+
+    @staticmethod
+    def _pod(name, namespace="prod", phase="Running", ready=True,
+             waiting_reason=None, terminated_reason=None, terminated_exit=0,
+             status_reason=None, deletion_timestamp=None):
+        """Build a minimal pod JSON item — only the fields _pod_is_unhealthy reads."""
+        state = {}
+        if waiting_reason:
+            state["waiting"] = {"reason": waiting_reason}
+        if terminated_reason:
+            state["terminated"] = {"reason": terminated_reason, "exitCode": terminated_exit}
+        container_status = {"ready": ready}
+        if state:
+            container_status["state"] = state
+
+        metadata = {"name": name, "namespace": namespace}
+        if deletion_timestamp:
+            metadata["deletionTimestamp"] = deletion_timestamp
+
+        status = {"phase": phase, "containerStatuses": [container_status]}
+        if status_reason:
+            status["reason"] = status_reason
+
+        return {"metadata": metadata, "status": status}
+
+    def test_crashloopbackoff_is_flagged(self):
+        self._stub_pods([
+            self._pod("web-1", ready=False, waiting_reason="CrashLoopBackOff"),
+            self._pod("web-2", ready=True),
+        ])
         found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
-        self.assertIn("web-1", found)
-        self.assertIn("img-1", found)
-        self.assertNotIn("web-2", found)
+        self.assertEqual(found, ["web-1"])
 
-    def test_completed_pods_are_not_treated_as_failures(self):
-        self._stub("job-x   0/1   Completed   0   1h\n")
+    def test_imagepullbackoff_is_flagged(self):
+        self._stub_pods([self._pod("img-1", ready=False, waiting_reason="ImagePullBackOff")])
+        found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
+        self.assertEqual(found, ["img-1"])
+
+    def test_oomkilled_is_flagged(self):
+        self._stub_pods([
+            self._pod("web-1", ready=False, terminated_reason="OOMKilled", terminated_exit=137),
+        ])
+        found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
+        self.assertEqual(found, ["web-1"])
+
+    def test_succeeded_job_pod_is_not_a_failure(self):
+        """A Job pod that ran to completion is healthy, whatever its READY count."""
+        self._stub_pods([self._pod("job-x", phase="Succeeded", ready=False)])
         self.assertEqual(find_unhealthy_pods(namespace="prod"), [])
 
-    def test_partially_ready_pod_is_flagged(self):
-        """1/2 ready with status Running is a real failure the STATUS hides."""
-        self._stub("api-1   1/2   Running   0   10m\n")
+    def test_pending_phase_is_flagged(self):
+        self._stub_pods([self._pod("pending-1", phase="Pending", ready=False)])
+        found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
+        self.assertEqual(found, ["pending-1"])
+
+    def test_failed_phase_is_flagged(self):
+        self._stub_pods([self._pod("evicted-1", phase="Failed", status_reason="Evicted", ready=False)])
+        found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
+        self.assertEqual(found, ["evicted-1"])
+
+    def test_terminating_pod_is_flagged(self):
+        self._stub_pods([
+            self._pod("stuck-1", ready=True, deletion_timestamp="2026-08-10T00:00:00Z"),
+        ])
+        found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
+        self.assertEqual(found, ["stuck-1"])
+
+    def test_partially_ready_running_pod_is_flagged(self):
+        """Running with one of several containers not ready is a real failure
+        the STATUS column alone hides."""
+        pod = self._pod("api-1", phase="Running", ready=True)
+        pod["status"]["containerStatuses"].append({"ready": False})
+        self._stub_pods([pod])
         found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
         self.assertEqual(found, ["api-1"])
 
-    def test_all_namespaces_output_keeps_the_namespace(self):
-        self._stub("payments   api-1   0/1   CrashLoopBackOff   3   5m\n")
+    def test_fully_ready_running_pod_is_healthy(self):
+        self._stub_pods([self._pod("web-2", phase="Running", ready=True)])
+        self.assertEqual(find_unhealthy_pods(namespace="prod"), [])
+
+    def test_all_namespaces_keeps_the_pods_own_namespace(self):
+        self._stub_pods([
+            self._pod("api-1", namespace="payments", ready=False, waiting_reason="CrashLoopBackOff"),
+        ])
         self.assertEqual(find_unhealthy_pods(all_namespaces=True), [("payments", "api-1")])
 
-    def test_unparseable_line_is_skipped_not_fatal(self):
-        self._stub("garbage\n\nweb-1   0/1   CrashLoopBackOff   1   1m\n")
-        found = [pod for _, pod in find_unhealthy_pods(namespace="prod")]
-        self.assertEqual(found, ["web-1"])
+    def test_unparseable_output_is_skipped_not_fatal(self):
+        self._stub_raw("not json at all")
+        self.assertEqual(find_unhealthy_pods(namespace="prod"), [])
+
+    def test_command_failure_returns_empty_rather_than_raising(self):
+        self._stub_raw("Forbidden", ok=False)
+        self.assertEqual(find_unhealthy_pods(namespace="prod"), [])
 
 
 class TestCaptureIsRedacted(unittest.TestCase):

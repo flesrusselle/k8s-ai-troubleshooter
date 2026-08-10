@@ -1,0 +1,9 @@
+# Optional. Only needed if you bind the ServiceAccount below rather than an
+# existing one. Nothing in this manifest set requires a dedicated namespace —
+# use whichever your team already has for tooling.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8s-ai-troubleshooter
+  labels:
+    app.kubernetes.io/name: k8s-ai-troubleshooter
