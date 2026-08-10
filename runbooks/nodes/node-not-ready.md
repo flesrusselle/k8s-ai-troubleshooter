@@ -59,13 +59,32 @@ Confirm whether node issue is localized to host kubelet/disk vs network partitio
 ## Remediation
 Restart host `kubelet` daemon, clean host container image cache, or reboot host VM.
 
+## Blast Radius
+Draining a node evicts every pod on it. Rebooting or replacing a node affects
+all of its workloads and any volumes attached to it. On a small cluster this can
+exhaust capacity elsewhere and cascade into Pending pods.
+
 ## Human Approval Required
 - `kubectl cordon <node-name>`
-- `kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data`
+- `kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data` — **DESTRUCTIVE**, evicts every pod on the node and discards emptyDir contents
+
+## Verification
+```bash
+kubectl get node <node>
+kubectl describe node <node> | grep -A8 Conditions
+```
+Verified when the node reports `Ready`, all conditions except `Ready` read
+`False`, and pods schedule onto it successfully. A `Ready` node that receives no
+pods is still not fixed — check for a leftover cordon or taint.
+
+## Rollback
+`kubectl uncordon <node>` reverses a cordon. Pods evicted by a drain are not
+returned to the original node; they were rescheduled and stay where they landed.
+Local data on the node — `emptyDir`, `hostPath` — is gone.
 
 ## Related Runbooks
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
-- [cluster-health.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/cluster/cluster-health.md)
+- [node-pressure.md](node-pressure.md)
+- [cluster-health.md](../cluster/cluster-health.md)
 
 ## Official Documentation
 - [Node Status Documentation](https://kubernetes.io/docs/concepts/architecture/nodes/#status)

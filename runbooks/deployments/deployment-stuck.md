@@ -60,12 +60,31 @@ Identify specific failure in new ReplicaSet pods blocking deployment progress de
 ## Remediation
 Undo deployment rollout to last working revision or fix container image/config.
 
+## Blast Radius
+Rollout changes replace pods across the workload. Raising `maxSurge` consumes
+additional cluster capacity during the rollout and can push a namespace over its
+ResourceQuota, blocking unrelated deployments.
+
 ## Human Approval Required
 - `kubectl rollout undo deployment/<deployment-name> -n <namespace>` (**HUMAN APPROVAL REQUIRED**)
 
+## Verification
+```bash
+kubectl rollout status deployment/<name> -n <namespace> --timeout=120s
+kubectl get deployment <name> -n <namespace>
+```
+Verified when `rollout status` reports success and `READY` matches the desired
+replica count. `UP-TO-DATE` alone is not enough — it counts pods with the new
+template, including ones that are not ready.
+
+## Rollback
+`kubectl rollout undo deployment/<name> -n <namespace>` restores the previous
+template as a new revision. Only `revisionHistoryLimit` revisions are retained,
+so an old target may no longer exist.
+
 ## Related Runbooks
-- [crashloopbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/crashloopbackoff.md)
-- [probes.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/probes.md)
+- [crashloopbackoff.md](../pods/crashloopbackoff.md)
+- [probes.md](../pods/probes.md)
 
 ## Official Documentation
 - [Deployment Rollouts](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#updating-a-deployment)

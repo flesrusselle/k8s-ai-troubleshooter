@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SymptomIndexSchema",
+  "type": "object",
+  "required": ["id", "title", "description", "signal_types", "default_entry", "entries"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "signal_types": {
+      "type": "object",
+      "description": "Signal type name -> where in cluster output it is observed.",
+      "additionalProperties": { "type": "string" },
+      "minProperties": 1
+    },
+    "default_entry": {
+      "type": "string",
+      "description": "Runbook to open when no entry matches."
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "summary", "signals", "runbook", "first_command"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "signals": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": ["string", "integer"]
+              }
+            }
+          },
+          "runbook": {
+            "type": "string",
+            "pattern": "^runbooks/.+\\.md$"
+          },
+          "decision_tree": {
+            "type": "string",
+            "pattern": "^decision-trees/.+\\.yaml$"
+          },
+          "first_command": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

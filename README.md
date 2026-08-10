@@ -78,16 +78,32 @@ The AI assistant follows this deterministic path:
 
 ```text
 k8s-ai-troubleshooter/
-├── docs/                     # Architectural, Safety, Helm & Authoring Guides
-├── runbooks/                 # Diagnostic Runbooks (Pods, Net, Storage, Nodes, Helm)
+├── symptom-index.yaml        # Signal → Runbook Router (the entry point)
+├── docs/                     # Architecture, Safety, Usage Guides & Reference Tables
+├── runbooks/                 # Diagnostic Runbooks (start at runbooks/triage.md)
 ├── decision-trees/           # Machine-Readable YAML Decision Trees
 ├── commands/                 # Classified Command Catalogs (kubectl, Helm)
-├── schemas/                  # JSON Schemas for Runbooks, Decision Trees & Commands
+├── schemas/                  # JSON Schemas for Runbooks, Trees, Commands & Index
 ├── integrations/             # Presets for Antigravity, Claude Code, Cursor, ChatGPT, Copilot, MCP
 ├── examples/                 # Real-World Diagnostic Session Examples
-├── scripts/                  # Schema Validation & PR Release Preview Automation
+├── scripts/                  # Redaction, Evidence Collection, Safety & Validation
 └── tests/                    # Python Validation Test Suite
 ```
+
+### Key scripts
+
+| Script | Purpose |
+| :--- | :--- |
+| `scripts/collect.py` | Collect a redacted, read-only evidence bundle for an assistant to analyse |
+| `scripts/redact.py` | Strip secrets from cluster output while preserving diagnostic detail |
+| `scripts/safety.py` | Classify any `kubectl` / `helm` command into a safety tier |
+| `scripts/validate.py` | Structural validation of runbooks, schemas, routing and links |
+
+### Reference tables
+
+Lookup tables mapping raw Kubernetes signals to their meaning and runbook:
+[exit codes](docs/reference/exit-codes.md), [pod states](docs/reference/pod-states.md),
+[event reasons](docs/reference/event-reasons.md).
 
 ---
 
@@ -106,9 +122,22 @@ kubectl config current-context
 
 `kubectl` must already be authenticated to the target cluster. This repository does not create credentials, store kubeconfigs, or connect to a cluster by itself.
 
+### Collect evidence first (recommended)
+
+Rather than pasting command output by hand — which is how credentials end up in
+a chat log — collect a redacted bundle in one step:
+
+```bash
+python3 scripts/collect.py -n prod -o evidence-bundle
+```
+
+Every command it runs is classified read-only before execution, and all output
+is redacted on the way to disk. See [docs/evidence-bundles.md](docs/evidence-bundles.md).
+
 ### Option 1: Use It as a Human Runbook Library
 
-1. Open the matching runbook under `runbooks/`.
+1. Start at [`runbooks/triage.md`](runbooks/triage.md) to establish blast radius, then
+   match the observed signal against [`symptom-index.yaml`](symptom-index.yaml).
 2. Run the listed `SAFE_READ` commands yourself, such as `kubectl get pods -A`, `kubectl describe pod`, and `kubectl logs`.
 3. Compare the observed output with the matching decision tree under `decision-trees/`.
 4. Apply any remediation only after reviewing the impact.
@@ -123,13 +152,19 @@ Good starting points:
 
 ### Option 2: Use It With an AI Assistant
 
-Load one of the integration files into your assistant:
+Each platform has a detailed guide with setup, permissions, a worked end-to-end
+session, and integration troubleshooting — start at
+[docs/usage/](docs/usage/README.md):
 
-- **Antigravity AI**: copy `integrations/antigravity/SKILL.md` into your Antigravity skills folder or run with this repository as the active workspace.
-- **Claude Code**: point Claude to `integrations/claude/CLAUDE.md`.
-- **Cursor**: add `integrations/cursor/.cursorrules` to your project root.
-- **ChatGPT / Generic LLM**: copy `integrations/generic/system-prompt.md` into your LLM client.
-- **GitHub Copilot**: use `integrations/copilot/instructions.md` as repository instructions.
+| Platform | Guide | Preset |
+| :--- | :--- | :--- |
+| Claude Code | [docs/usage/claude-code.md](docs/usage/claude-code.md) | `integrations/claude/CLAUDE.md` |
+| Antigravity | [docs/usage/antigravity.md](docs/usage/antigravity.md) | `integrations/antigravity/SKILL.md` |
+| Cursor | [docs/usage/cursor.md](docs/usage/cursor.md) | `integrations/cursor/.cursorrules` |
+| MCP clients | [docs/usage/mcp.md](docs/usage/mcp.md) | `integrations/mcp/server.py` |
+| ChatGPT | [docs/usage/chatgpt.md](docs/usage/chatgpt.md) | `integrations/chatgpt/instructions.md` |
+| GitHub Copilot | [docs/usage/copilot.md](docs/usage/copilot.md) | `integrations/copilot/instructions.md` |
+| Any other LLM | [docs/usage/generic-llm.md](docs/usage/generic-llm.md) | `integrations/generic/system-prompt.md` |
 
 Then ask a concrete diagnostic question, for example:
 
@@ -204,10 +239,10 @@ It does not blindly list every generic Kubernetes fix. The goal is to reduce noi
 
 ## 💰 Zero-Cost Commitment
 
-`k8s-ai-troubleshooter` requires **$0** in external API keys, SaaS platforms, or paid cluster tools. It relies entirely on `kubectl`, standard open-source tools, and local/free AI clients. See [COST.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/docs/COST.md).
+`k8s-ai-troubleshooter` requires **$0** in external API keys, SaaS platforms, or paid cluster tools. It relies entirely on `kubectl`, standard open-source tools, and local/free AI clients. See [COST.md](docs/COST.md).
 
 ---
 
 ## 📜 License
 
-Licensed under the [Apache License, Version 2.0](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/LICENSE).
+Licensed under the [Apache License, Version 2.0](LICENSE).

@@ -54,12 +54,32 @@ Confirm node disk/memory consumption at the host level.
 ## Remediation
 Clean host logs, set `ephemeral-storage` resource limits on containers, or expand node disk.
 
+## Blast Radius
+Deleting evicted pod objects is cosmetic and safe; it reclaims etcd entries
+and nothing else. The real remediation — freeing node resources — affects every
+workload on that node.
+
 ## Human Approval Required
-- `kubectl delete pod --field-selector status.phase=Failed -n <namespace>`
+- `kubectl delete pod --field-selector status.phase=Failed -n <namespace>` — **DESTRUCTIVE** by classification, though evicted pods are already dead; this only reclaims their API objects
 - Node cleanup commands.
 
+## Verification
+```bash
+kubectl get pods -n <namespace> --field-selector=status.phase=Failed
+kubectl describe node <node> | grep -A5 Conditions
+```
+Verified when no new evictions occur and the node's `MemoryPressure` and
+`DiskPressure` conditions read `False`. Clearing the evicted pod objects alone
+verifies nothing — the pressure that caused them is what must be observed to
+have gone.
+
+## Rollback
+Evictions cannot be undone; the pods are gone and were replaced by their
+controller. If the fix was raising limits or moving a workload, revert that
+change — but expect the original pressure to return.
+
 ## Related Runbooks
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
+- [node-pressure.md](../nodes/node-pressure.md)
 
 ## Official Documentation
 - [Node Pressure Eviction](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)

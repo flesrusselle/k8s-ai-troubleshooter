@@ -59,13 +59,31 @@ Confirm whether StorageClass exists and CSI provisioner plugin is active.
 ## Remediation
 Create missing StorageClass, request supported capacity, or schedule consuming pod.
 
+## Blast Radius
+Creating a PV or changing a StorageClass affects future claims across the
+cluster. Deleting and recreating a PVC destroys its data irreversibly if the
+reclaim policy is `Delete`.
+
 ## Human Approval Required
 - `kubectl delete pvc <name>` (**DESTRUCTIVE — ABSOLUTE HUMAN APPROVAL REQUIRED**)
 - `kubectl apply -f storageclass.yaml`
 
+## Verification
+```bash
+kubectl get pvc <claim> -n <namespace>
+```
+Verified when `STATUS` reads `Bound` and the consuming pod leaves `Pending`.
+With `WaitForFirstConsumer`, a Pending PVC is expected until a pod schedules —
+verify the pod, not the claim.
+
+## Rollback
+A newly created PV can be deleted if unused. A deleted PVC cannot be restored:
+with `reclaimPolicy: Delete` the underlying volume is destroyed with it. Confirm
+the reclaim policy before treating any PVC deletion as reversible.
+
 ## Related Runbooks
-- [mount-failure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/storage/mount-failure.md)
-- [pending.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/pending.md)
+- [mount-failure.md](mount-failure.md)
+- [pending.md](../pods/pending.md)
 
 ## Official Documentation
 - [Persistent Volumes Documentation](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)

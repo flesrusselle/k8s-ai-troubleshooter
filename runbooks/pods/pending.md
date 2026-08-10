@@ -71,13 +71,31 @@ Confirm root cause by verifying scheduler event against node capacity or pod spe
 ## Remediation
 Scale up node pool, lower pod resource requests, or add missing tolerations.
 
+## Blast Radius
+Adding nodes changes cluster cost immediately. Lowering resource requests to
+make a pod fit affects scheduling for every replica and can cause CPU throttling
+or OOMKills later — it moves the failure rather than removing it.
+
 ## Human Approval Required
 - `kubectl scale deployment/<name> --replicas=N`
 - Provision additional cloud nodes.
 
+## Verification
+```bash
+kubectl get pod <pod-name> -n <namespace> -o wide
+```
+Verified when the pod shows a `NODE` assignment and leaves `Pending`. Confirm no
+other workload was displaced: re-run the cluster-wide Pending query and check
+the count has genuinely gone down rather than moved.
+
+## Rollback
+Scale the node group back down, or restore the original resource requests.
+Nodes added during an incident should be removed deliberately afterwards —
+autoscalers frequently will not reclaim them while any pod tolerates them.
+
 ## Related Runbooks
-- [pvc-pending.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/storage/pvc-pending.md)
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
+- [pvc-pending.md](../storage/pvc-pending.md)
+- [node-pressure.md](../nodes/node-pressure.md)
 
 ## Official Documentation
 - [Kubernetes Pod Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/)

@@ -62,13 +62,34 @@ Confirm that container peak memory exceeded the configured `resources.limits.mem
 ## Remediation
 Increase container memory limits in deployment spec or Helm values, or optimize application memory footprint.
 
+## Blast Radius
+Raising a memory limit changes the pod's QoS class and its scheduling
+footprint: it may no longer fit on its current node, and the rollout can leave
+pods Pending if the cluster lacks headroom. Raising limits namespace-wide can
+exhaust a ResourceQuota and block unrelated deployments.
+
 ## Human Approval Required
 - `kubectl set resources deployment/<deployment-name> -c=<container-name> --limits=memory=1Gi -n <namespace>`
 - `helm upgrade <release-name> <chart> -f values.yaml`
 
+## Verification
+```bash
+kubectl get pod <pod-name> -n <namespace> \
+  -o jsonpath='{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}'
+kubectl top pod <pod-name> -n <namespace> --containers
+```
+Verified when `lastState.terminated.reason` is no longer `OOMKilled` after a
+full workload cycle, and steady-state usage sits comfortably below the new
+limit. Check under real load — a limit that holds at 3am proves nothing.
+
+## Rollback
+Reapply the previous limits with `kubectl rollout undo`. If the true cause was
+a memory leak rather than an undersized limit, rolling back returns you to
+OOMKills on the original schedule — the leak is the fix, not the limit.
+
 ## Related Runbooks
-- [crashloopbackoff.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/crashloopbackoff.md)
-- [node-pressure.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/nodes/node-pressure.md)
+- [crashloopbackoff.md](crashloopbackoff.md)
+- [node-pressure.md](../nodes/node-pressure.md)
 
 ## Official Documentation
 - [Resource Management for Pods](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)

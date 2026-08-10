@@ -63,12 +63,31 @@ Match Pod labels with Service selector key/value map.
 ## Remediation
 Update Service selector or fix pod readiness probes.
 
+## Blast Radius
+Changing a Service selector or pod labels re-routes live traffic immediately
+and can silently move it to the wrong workload. Label changes may also affect
+NetworkPolicies and PodDisruptionBudgets that select on the same labels.
+
 ## Human Approval Required
 - `kubectl patch svc <service-name> -n <namespace> -p '...'`
 
+## Verification
+```bash
+kubectl get endpoints <service> -n <namespace>
+```
+Verified when the endpoint list contains every ready pod and no others, and a
+request through the Service reaches the intended workload. Non-empty endpoints
+alone do not prove correct routing — confirm the pods listed are the ones you
+meant.
+
+## Rollback
+Restore the previous selector or labels. Traffic that was served by the wrong
+backend during the window cannot be recalled; if the mis-route sent writes
+somewhere unintended, that is a data question, not a networking one.
+
 ## Related Runbooks
-- [probes.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/pods/probes.md)
-- [ingress.md](file:///Users/flestorres/Desktop/apply/k8s-ai-troubleshooter/runbooks/networking/ingress.md)
+- [probes.md](../pods/probes.md)
+- [ingress.md](ingress.md)
 
 ## Official Documentation
 - [Services and Endpoints](https://kubernetes.io/docs/concepts/services-networking/service/)

@@ -1,0 +1,522 @@
+id: "symptom-index"
+title: "Symptom → Runbook Router"
+description: >-
+  Deterministic mapping from an observable signal to the runbook that handles it.
+  This is the entry point: an assistant matches what it can literally see in
+  cluster output — a waiting reason, an event reason, an exit code, an error
+  string — against the signals below, and opens the runbook named there.
+
+  The point is to remove guesswork about *which* runbook applies. Without this,
+  an assistant has to infer the right document from 20 filenames, which is where
+  wrong turns start. Signals are quoted exactly as Kubernetes emits them.
+
+  Every runbook in runbooks/ must be reachable from at least one entry here;
+  scripts/validate.py enforces that, so a new runbook cannot be added without a
+  route to it.
+
+signal_types:
+  pod_waiting_reason: "status.containerStatuses[].state.waiting.reason"
+  pod_terminated_reason: "status.containerStatuses[].lastState.terminated.reason"
+  pod_phase: "status.phase"
+  status_column: "The STATUS column of `kubectl get pods`"
+  exit_code: "status.containerStatuses[].lastState.terminated.exitCode"
+  event_reason: "The REASON column of `kubectl get events`"
+  node_condition: "status.conditions[].type where status is True"
+  error_text: "Substring appearing in command output or API error"
+
+#: The runbook to open when nothing below matches, or when the report is too
+#: vague to produce a signal at all.
+default_entry: "runbooks/triage.md"
+
+entries:
+  - id: "triage"
+    summary: "Unknown or cluster-wide scope. Establish blast radius before investigating."
+    signals:
+      error_text:
+        - "everything is broken"
+        - "app is down"
+        - "multiple services failing"
+        - "unknown scope"
+    runbook: "runbooks/triage.md"
+    first_command: "kubectl get pods --all-namespaces --field-selector=status.phase!=Running"
+
+  - id: "crashloopbackoff"
+    summary: "Container starts, exits, and is restarted in a widening backoff loop."
+    signals:
+      pod_waiting_reason: ["CrashLoopBackOff"]
+      status_column: ["CrashLoopBackOff"]
+      event_reason: ["BackOff"]
+    runbook: "runbooks/pods/crashloopbackoff.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl logs <pod> -n <namespace> --previous --all-containers"
+
+  - id: "oomkilled"
+    summary: "Kernel OOM killer terminated the container for exceeding its memory limit."
+    signals:
+      pod_terminated_reason: ["OOMKilled"]
+      exit_code: [137]
+      event_reason: ["OOMKilling"]
+    runbook: "runbooks/pods/oomkilled.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  - id: "imagepullbackoff"
+    summary: "Kubelet cannot pull the container image."
+    signals:
+      pod_waiting_reason: ["ImagePullBackOff", "ErrImagePull", "InvalidImageName"]
+      status_column: ["ImagePullBackOff", "ErrImagePull"]
+      event_reason: ["Failed", "FailedPull"]
+      error_text:
+        - "manifest unknown"
+        - "unauthorized: authentication required"
+        - "pull access denied"
+        - "no such host"
+    runbook: "runbooks/pods/imagepullbackoff.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  # Capacity exhaustion only. Taint, affinity and topology signals belong to
+  # scheduling-constraints below — the two have different fixes, and listing the
+  # same signal in both makes routing a coin toss.
+  - id: "pod-pending"
+    summary: "Pod is accepted but not scheduled, because the cluster is out of resources."
+    signals:
+      pod_phase: ["Pending"]
+      status_column: ["Pending"]
+      event_reason: ["FailedScheduling"]
+      error_text:
+        - "0/*, nodes are available"
+        - "Insufficient cpu"
+        - "Insufficient memory"
+        - "Insufficient ephemeral-storage"
+        - "Insufficient pods"
+    runbook: "runbooks/pods/pending.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  - id: "pod-evicted"
+    summary: "Kubelet evicted the pod to reclaim a starved node resource."
+    signals:
+      pod_phase: ["Failed"]
+      status_column: ["Evicted"]
+      event_reason: ["Evicted"]
+      error_text:
+        - "The node was low on resource"
+        - "node had condition: [DiskPressure]"
+        - "node had condition: [MemoryPressure]"
+    runbook: "runbooks/pods/evicted.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  - id: "probe-failure"
+    summary: "Liveness, readiness or startup probe is failing."
+    signals:
+      event_reason: ["Unhealthy", "ProbeWarning"]
+      error_text:
+        - "Liveness probe failed"
+        - "Readiness probe failed"
+        - "Startup probe failed"
+    runbook: "runbooks/pods/probes.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  - id: "high-restart-count"
+    summary: "Container restart count climbing without a persistent failed state."
+    signals:
+      error_text:
+        - "RESTARTS"
+      event_reason: ["Killing", "Created", "Started"]
+    runbook: "runbooks/pods/restarts.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl get pods -n <namespace> --sort-by=.status.containerStatuses[0].restartCount"
+
+  - id: "find-failing-pods"
+    summary: "Entry point when the symptom is 'something is broken' with no named pod."
+    signals:
+      error_text:
+        - "unknown failure"
+        - "service degraded"
+        - "which pod is failing"
+    runbook: "runbooks/pods/find-failing-pods.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl get pods --all-namespaces --field-selector=status.phase!=Running"
+
+  - id: "pvc-pending"
+    summary: "PersistentVolumeClaim is not bound to a volume."
+    signals:
+      pod_phase: ["Pending"]
+      event_reason: ["ProvisioningFailed", "FailedBinding", "WaitForFirstConsumer"]
+      error_text:
+        - "pod has unbound immediate PersistentVolumeClaims"
+        - "no persistent volumes available for this claim"
+        - "storageclass.storage.k8s.io"
+    runbook: "runbooks/storage/pvc-pending.md"
+    decision_tree: "decision-trees/storage.yaml"
+    first_command: "kubectl describe pvc <claim> -n <namespace>"
+
+  - id: "volume-mount-failure"
+    summary: "Volume is bound but cannot be attached or mounted to the node."
+    signals:
+      pod_waiting_reason: ["ContainerCreating", "CreateContainerConfigError"]
+      event_reason: ["FailedMount", "FailedAttachVolume", "FailedMapVolume"]
+      error_text:
+        - "Unable to attach or mount volumes"
+        - "timed out waiting for the condition"
+        - "MountVolume.SetUp failed"
+        - "secret \"*\" not found"
+        - "configmap \"*\" not found"
+    runbook: "runbooks/storage/mount-failure.md"
+    decision_tree: "decision-trees/storage.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  - id: "node-not-ready"
+    summary: "Node is registered but not accepting workloads."
+    signals:
+      node_condition: ["NotReady", "Unknown"]
+      event_reason: ["NodeNotReady", "NodeStatusUnknown"]
+      error_text:
+        - "node is not ready"
+        - "kubelet stopped posting node status"
+    runbook: "runbooks/nodes/node-not-ready.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl describe node <node>"
+
+  - id: "node-pressure"
+    summary: "Node is under memory, disk or PID pressure and is shedding load."
+    signals:
+      node_condition: ["MemoryPressure", "DiskPressure", "PIDPressure"]
+      event_reason: ["NodeHasInsufficientMemory", "NodeHasDiskPressure", "EvictionThresholdMet"]
+    runbook: "runbooks/nodes/node-pressure.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl describe node <node>"
+
+  - id: "dns-resolution"
+    summary: "In-cluster DNS lookups fail or resolve slowly."
+    signals:
+      error_text:
+        - "no such host"
+        - "Temporary failure in name resolution"
+        - "server misbehaving"
+        - "i/o timeout"
+        - "SERVFAIL"
+    runbook: "runbooks/networking/coredns.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl -n kube-system get pods -l k8s-app=kube-dns"
+
+  - id: "service-no-endpoints"
+    summary: "Service exists but routes to nothing."
+    signals:
+      error_text:
+        - "no endpoints available"
+        - "connection refused"
+        - "ENDPOINTS   <none>"
+    runbook: "runbooks/networking/endpoints.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl get endpoints <service> -n <namespace>"
+
+  - id: "ingress-error"
+    summary: "Ingress returns 502, 503 or 404 instead of reaching the backend."
+    signals:
+      error_text:
+        - "502 Bad Gateway"
+        - "503 Service Temporarily Unavailable"
+        - "504 Gateway Time-out"
+        - "default backend - 404"
+    runbook: "runbooks/networking/ingress.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl describe ingress <ingress> -n <namespace>"
+
+  - id: "network-policy-block"
+    summary: "Traffic is dropped by a NetworkPolicy rather than by the application."
+    signals:
+      error_text:
+        - "connection timed out"
+        - "dial tcp: i/o timeout"
+        - "context deadline exceeded"
+    runbook: "runbooks/networking/network-policy.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl get networkpolicies -n <namespace>"
+
+  - id: "deployment-stuck"
+    summary: "Rollout does not progress to the desired replica count."
+    signals:
+      event_reason: ["FailedCreate", "ReplicaSetCreateError"]
+      error_text:
+        - "ProgressDeadlineExceeded"
+        - "Waiting for rollout to finish"
+        - "deployment exceeded its progress deadline"
+    runbook: "runbooks/deployments/deployment-stuck.md"
+    first_command: "kubectl rollout status deployment/<name> -n <namespace>"
+
+  - id: "cluster-health"
+    summary: "Cluster-wide health sweep when the blast radius is not a single workload."
+    signals:
+      error_text:
+        - "The connection to the server"
+        - "control plane"
+        - "cluster is unhealthy"
+    runbook: "runbooks/cluster/cluster-health.md"
+    first_command: "kubectl get componentstatuses"
+
+  - id: "helm-failure"
+    summary: "Helm release is in a failed, pending or stuck state."
+    signals:
+      error_text:
+        - "has no deployed releases"
+        - "another operation (install/upgrade/rollback) is in progress"
+        - "UPGRADE FAILED"
+        - "pending-upgrade"
+        - "pending-install"
+    runbook: "runbooks/helm/helm-troubleshooting.md"
+    decision_tree: "decision-trees/helm.yaml"
+    first_command: "helm list --all-namespaces --all"
+
+  - id: "helm-ownership"
+    summary: "Resource exists but is not owned by the release trying to manage it."
+    signals:
+      error_text:
+        - "invalid ownership metadata"
+        - "annotation validation error"
+        - "meta.helm.sh/release-name"
+        - "exists and cannot be imported into the current release"
+    runbook: "runbooks/helm/helm-ownership.md"
+    decision_tree: "decision-trees/helm.yaml"
+    first_command: "kubectl get <resource> <name> -n <namespace> -o jsonpath='{.metadata.annotations}'"
+
+  # ---- Workloads ----------------------------------------------------------
+
+  - id: "init-container-failure"
+    summary: "An init container fails before the application container ever starts."
+    signals:
+      pod_waiting_reason: ["PodInitializing"]
+      status_column: ["Init:Error", "Init:CrashLoopBackOff", "Init:ImagePullBackOff", "Init:0/1", "PodInitializing"]
+      error_text:
+        - "Init:"
+        - "init container"
+    runbook: "runbooks/pods/init-containers.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl logs <pod> -n <namespace> -c <init-container>"
+
+  - id: "job-failure"
+    summary: "A Job exhausts its retries, or a CronJob does not schedule."
+    signals:
+      event_reason: ["BackoffLimitExceeded", "DeadlineExceeded", "FailedNeedsStart", "TooManyMissedTimes"]
+      error_text:
+        - "Job has reached the specified backoff limit"
+        - "exceeded the deadline"
+        - "Cannot determine if job needs to be started"
+        - "too many missed start time"
+    runbook: "runbooks/workloads/job-failures.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl describe job <name> -n <namespace>"
+
+  - id: "statefulset-stuck"
+    summary: "A StatefulSet stops progressing at one ordinal."
+    signals:
+      error_text:
+        - "statefulset"
+        - "ordinal"
+        - "volumeClaimTemplates"
+        - "updateStrategy partition"
+    runbook: "runbooks/workloads/statefulset-stuck.md"
+    decision_tree: "decision-trees/storage.yaml"
+    first_command: "kubectl describe statefulset <name> -n <namespace>"
+
+  - id: "daemonset-gap"
+    summary: "A DaemonSet does not place a pod on every node it should."
+    signals:
+      error_text:
+        - "daemonset"
+        - "desired number of nodes"
+        - "node not covered"
+    runbook: "runbooks/workloads/daemonset-not-scheduling.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl describe daemonset <name> -n <namespace>"
+
+  - id: "hpa-not-scaling"
+    summary: "A HorizontalPodAutoscaler will not scale, or reports unknown metrics."
+    signals:
+      event_reason: ["FailedGetResourceMetric", "FailedComputeMetricsReplicas", "FailedGetExternalMetric"]
+      error_text:
+        - "unable to get metrics for resource"
+        - "missing request for"
+        - "did not receive metrics"
+        - "<unknown>/"
+    runbook: "runbooks/workloads/hpa-not-scaling.md"
+    first_command: "kubectl describe hpa <name> -n <namespace>"
+
+  # ---- Security & admission -----------------------------------------------
+
+  - id: "rbac-forbidden"
+    summary: "The API server authenticated the caller and denied the action."
+    signals:
+      error_text:
+        - "is forbidden"
+        - "cannot list resource"
+        - "cannot get resource"
+        - "cannot create resource"
+        - "User \"system:serviceaccount"
+        - "RBAC: access denied"
+    runbook: "runbooks/security/rbac-forbidden.md"
+    first_command: "kubectl auth can-i --list -n <namespace>"
+
+  - id: "admission-webhook-failure"
+    summary: "An admission webhook denied the request, timed out, or is unreachable."
+    signals:
+      error_text:
+        - "failed calling webhook"
+        - "admission webhook"
+        - "denied the request"
+        - "no endpoints available for service"
+        - "context deadline exceeded"
+    runbook: "runbooks/security/admission-webhook.md"
+    first_command: "kubectl get validatingwebhookconfigurations"
+
+  - id: "pod-security-admission"
+    summary: "Pod Security Admission rejected the pod for violating a policy level."
+    signals:
+      event_reason: ["FailedCreate"]
+      error_text:
+        - "violates PodSecurity"
+        - "allowPrivilegeEscalation != false"
+        - "runAsNonRoot != true"
+        - "unrestricted capabilities"
+        - "seccompProfile"
+    runbook: "runbooks/security/pod-security-admission.md"
+    first_command: "kubectl get namespace <namespace> -o jsonpath='{.metadata.labels}'"
+
+  # ---- Scheduling ---------------------------------------------------------
+
+  - id: "scheduling-constraints"
+    summary: "Taints, affinity or topology spread prevent scheduling — not capacity."
+    signals:
+      error_text:
+        - "had untolerated taint"
+        - "didn't match Pod's node affinity"
+        - "didn't match pod anti-affinity rules"
+        - "didn't match pod topology spread constraints"
+        - "had volume node affinity conflict"
+        - "node(s) didn't match node selector"
+    runbook: "runbooks/scheduling/taints-affinity.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl describe pod <pod> -n <namespace>"
+
+  - id: "resourcequota-exceeded"
+    summary: "ResourceQuota or LimitRange rejected the workload at admission."
+    signals:
+      event_reason: ["FailedCreate"]
+      error_text:
+        - "exceeded quota"
+        - "must specify limits"
+        - "must specify requests"
+        - "maximum memory usage per Container"
+        - "minimum cpu usage per Container"
+        - "forbidden: exceeded quota"
+    runbook: "runbooks/scheduling/resourcequota.md"
+    first_command: "kubectl describe resourcequota -n <namespace>"
+
+  - id: "pdb-blocking-eviction"
+    summary: "A PodDisruptionBudget is blocking a drain, upgrade or scale-down."
+    signals:
+      event_reason: ["EvictionBlocked"]
+      error_text:
+        - "Cannot evict pod as it would violate the pod's disruption budget"
+        - "disruption budget"
+        - "cannot scale down"
+        - "error when evicting"
+    runbook: "runbooks/scheduling/pdb-eviction.md"
+    decision_tree: "decision-trees/node-health.yaml"
+    first_command: "kubectl get pdb --all-namespaces"
+
+  # ---- Networking ---------------------------------------------------------
+
+  - id: "service-unreachable"
+    summary: "Pod-to-service connectivity fails somewhere in the four-hop path."
+    signals:
+      error_text:
+        - "connection refused"
+        - "no route to host"
+        - "upstream connect error"
+        - "ENDPOINTS   <none>"
+    runbook: "runbooks/networking/service-unreachable.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl get endpoints <service> -n <namespace>"
+
+  - id: "loadbalancer-pending"
+    summary: "A LoadBalancer Service never receives an external IP."
+    signals:
+      event_reason: ["SyncLoadBalancerFailed", "EnsuringLoadBalancer"]
+      error_text:
+        - "EXTERNAL-IP   <pending>"
+        - "SyncLoadBalancerFailed"
+        - "could not find any suitable subnets"
+        - "failed to ensure load balancer"
+    runbook: "runbooks/networking/loadbalancer-pending.md"
+    decision_tree: "decision-trees/networking.yaml"
+    first_command: "kubectl describe service <service> -n <namespace>"
+
+  # ---- Storage ------------------------------------------------------------
+
+  - id: "multi-attach"
+    summary: "A ReadWriteOnce volume is still attached to another node."
+    signals:
+      event_reason: ["FailedAttachVolume"]
+      error_text:
+        - "Multi-Attach error for volume"
+        - "Volume is already exclusively attached to one node"
+        - "volume is already used by pod"
+    runbook: "runbooks/storage/multi-attach.md"
+    decision_tree: "decision-trees/storage.yaml"
+    first_command: "kubectl get volumeattachment"
+
+  # ---- Cluster & control plane --------------------------------------------
+
+  - id: "api-server-unreachable"
+    summary: "kubectl itself cannot reach or authenticate to the cluster."
+    signals:
+      error_text:
+        - "The connection to the server"
+        - "Unable to connect to the server"
+        - "was refused - did you specify the right host or port"
+        - "You must be logged in to the server"
+        - "Unauthorized"
+    runbook: "runbooks/cluster/api-server-unreachable.md"
+    first_command: "kubectl cluster-info"
+
+  - id: "certificate-expiry"
+    summary: "An expired or untrusted TLS certificate is breaking connections."
+    signals:
+      error_text:
+        - "x509: certificate has expired"
+        - "x509: certificate signed by unknown authority"
+        - "certificate is not yet valid"
+        - "tls: bad certificate"
+        - "certificate has expired or is not yet valid"
+    runbook: "runbooks/cluster/certificate-expiry.md"
+    first_command: "kubectl get certificates --all-namespaces"
+
+  - id: "events-triage"
+    summary: "Many failures at once; a timeline is needed to separate cause from cascade."
+    signals:
+      error_text:
+        - "multiple failures"
+        - "what happened first"
+        - "incident timeline"
+        - "many alerts firing"
+    runbook: "runbooks/cluster/events-triage.md"
+    first_command: "kubectl get events --all-namespaces --sort-by=.metadata.creationTimestamp"
+
+  # ---- Deployments --------------------------------------------------------
+
+  - id: "bad-release"
+    summary: "A release made things worse; decide between rollback and fixing forward."
+    signals:
+      error_text:
+        - "after the deploy"
+        - "bad release"
+        - "rollback"
+        - "new version failing"
+        - "regression after rollout"
+    runbook: "runbooks/deployments/rollout-rollback.md"
+    decision_tree: "decision-trees/pod-failure.yaml"
+    first_command: "kubectl rollout history deployment/<name> -n <namespace>"
