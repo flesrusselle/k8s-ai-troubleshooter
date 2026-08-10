@@ -7,11 +7,18 @@ runbooks, decision trees, and command safety classifications.
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+from safety import classify, classify_command_safety  # noqa: E402
+
+# `classify_command_safety` is re-exported so that callers which imported it
+# from this module before the logic moved to scripts/safety.py keep working.
+__all__ = ["load_runbooks_index", "query_command_safety", "classify_command_safety"]
 
 def load_runbooks_index():
     runbooks_dir = REPO_ROOT / "runbooks"
@@ -24,33 +31,29 @@ def load_runbooks_index():
         })
     return runbooks
 
-def classify_command_safety(command_str: str) -> str:
+def query_command_safety(command_str: str) -> dict:
     """
-    Evaluates safety classification of a given command string.
+    Evaluate the safety classification of a kubectl or helm command.
+
+    Classification logic lives in `scripts/safety.py`, which is the single
+    implementation shared by this adapter and the test suite, and which is
+    verified against `commands/*.yaml` in CI.
     """
-    cmd = command_str.strip().lower()
-    destructive_keywords = ["delete namespace", "delete pvc", "delete pod --force", "uninstall"]
-    approval_keywords = ["rollout restart", "scale", "patch", "apply", "replace", "edit", "upgrade", "rollback", "delete"]
-    
-    for kw in destructive_keywords:
-        if kw in cmd:
-            return "DESTRUCTIVE"
-            
-    for kw in approval_keywords:
-        if kw in cmd:
-            return "HUMAN_APPROVAL_REQUIRED"
-            
-    if cmd.startswith("kubectl get") or cmd.startswith("kubectl describe") or cmd.startswith("kubectl logs") or cmd.startswith("helm status") or cmd.startswith("helm list"):
-        return "SAFE_READ"
-        
-    if cmd.startswith("kubectl top") or cmd.startswith("kubectl explain"):
-        return "SAFE_DIAGNOSTIC"
-        
-    return "HUMAN_APPROVAL_REQUIRED"
+    result = classify(command_str)
+    return {
+        "command": command_str,
+        "safety": result.safety,
+        "reason": result.reason,
+        "automatic_execution_allowed": result.safety in ("SAFE_READ", "SAFE_DIAGNOSTIC"),
+    }
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
         print(json.dumps({"status": "ok", "runbooks_count": len(load_runbooks_index())}))
+        return
+
+    if len(sys.argv) > 2 and sys.argv[1] == "--classify":
+        print(json.dumps(query_command_safety(sys.argv[2]), indent=2))
         return
 
     print("k8s-ai-troubleshooter MCP server adapter running.")
