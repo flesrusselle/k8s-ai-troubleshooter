@@ -3,3 +3,5 @@ __pycache__/
 .DS_Store
 scratch/
 RELEASE_PREVIEW.md
+.k8s-ai-troubleshooter/
+evidence-bundle/

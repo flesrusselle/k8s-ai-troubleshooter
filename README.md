@@ -4,6 +4,8 @@
 
 `k8s-ai-troubleshooter` is an open-source, model-agnostic, deterministic diagnostic engine and troubleshooting knowledge base for Kubernetes. It is designed to be loaded directly by AI coding assistants, MCP clients, autonomous agents, and human SREs.
 
+Pin to a [tagged release](https://github.com/flesrusselle/k8s-ai-troubleshooter/tags) rather than `main` if you depend on this not changing under you — see [`CHANGELOG.md`](CHANGELOG.md).
+
 ---
 
 ## 💡 What is this?
@@ -84,10 +86,12 @@ k8s-ai-troubleshooter/
 ├── decision-trees/           # Machine-Readable YAML Decision Trees
 ├── commands/                 # Classified Command Catalogs (kubectl, Helm)
 ├── schemas/                  # JSON Schemas for Runbooks, Trees, Commands & Index
+├── manifests/rbac/           # Least-privilege ClusterRole for running this tool
 ├── integrations/             # Presets for Antigravity, Claude Code, Cursor, ChatGPT, Copilot, MCP
 ├── examples/                 # Real-World Diagnostic Session Examples
 ├── scripts/                  # Redaction, Evidence Collection, Safety & Validation
-└── tests/                    # Python Validation Test Suite
+├── scripts/integration/      # Runner for the kind-based integration suite
+└── tests/                    # Python Test Suite (tests/integration/ needs a real cluster)
 ```
 
 ### Key scripts
@@ -97,6 +101,7 @@ k8s-ai-troubleshooter/
 | `scripts/collect.py` | Collect a redacted, read-only evidence bundle for an assistant to analyse |
 | `scripts/redact.py` | Strip secrets from cluster output while preserving diagnostic detail |
 | `scripts/safety.py` | Classify any `kubectl` / `helm` command into a safety tier |
+| `scripts/session_log.py` | Review the audit log of past diagnoses — see [docs/session-log.md](docs/session-log.md) |
 | `scripts/validate.py` | Structural validation of runbooks, schemas, routing and links |
 
 ### Reference tables
@@ -121,6 +126,12 @@ kubectl config current-context
 ```
 
 `kubectl` must already be authenticated to the target cluster. This repository does not create credentials, store kubeconfigs, or connect to a cluster by itself.
+
+**Recommended:** bind the identity running this tool to the least-privilege
+`ClusterRole` in [`manifests/rbac/`](manifests/rbac/README.md), rather than
+using a personal or cluster-admin kubeconfig. It grants exactly the verbs this
+project's own safety classification calls read-only — enforced by the API
+server itself, not only by application logic.
 
 ### Collect evidence first (recommended)
 

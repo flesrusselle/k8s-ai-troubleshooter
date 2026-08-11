@@ -46,3 +46,32 @@ NEVER automatically execute a command that:
 - changes cluster configuration
 - changes networking or storage
 ```
+
+---
+
+## Enforcement has two layers, not one
+
+Everything above is enforced in **application logic** — `scripts/safety.py`
+classifying a command, `scripts/collect.py` refusing to run anything above
+`SAFE_DIAGNOSTIC`. That holds as long as the assistant is behaving correctly.
+It does not hold against a bug, a prompt injection, or a compromised
+dependency, because the application is still running under whatever
+Kubernetes permissions its kubeconfig has.
+
+`manifests/rbac/` is the second layer: a `ClusterRole` that grants only the
+verbs this project's own classification calls `SAFE_READ`/`SAFE_DIAGNOSTIC` —
+no `create`, `patch`, `delete`, on anything. Bind the identity running this
+tool to it, and the "never execute a mutating command" rule above is enforced
+by the Kubernetes API server itself, independent of whether the application
+code is behaving. See [`manifests/rbac/README.md`](../manifests/rbac/README.md),
+including the Secrets/Helm tradeoff before choosing which variant to bind.
+
+---
+
+## A third thing worth tracking: what was actually concluded
+
+The two layers above stop a bad action. Neither one records that a diagnosis
+happened at all. [`docs/session-log.md`](session-log.md) covers the
+`log_diagnosis` MCP tool, which is not a safety control — nothing is blocked if
+it's skipped — but it's the difference between a recurring incident being
+visible and starting from zero every time someone opens a new conversation.

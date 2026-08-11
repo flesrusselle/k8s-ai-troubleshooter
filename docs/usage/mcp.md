@@ -18,11 +18,16 @@ is advice. A `query_command_safety` tool the model must call is a mechanism.
 | `get_decision_tree` | Decision tree YAML by id, e.g. `pod-failure` |
 | `query_command_safety` | Safety tier + reason for any kubectl/helm command |
 | `route_symptom` | Map an observed signal to the runbook that handles it |
+| `log_diagnosis` | Record a conclusion to the session log — [docs/session-log.md](../session-log.md) |
 
 `route_symptom` is the one that changes how a session goes. Given
 `CrashLoopBackOff`, exit code `137`, or a raw log line containing
 `Liveness probe failed`, it returns the right runbook ranked by match
 specificity — instead of the model guessing from a list of filenames.
+
+`log_diagnosis` is the one that makes a session outlive the conversation. Call
+it once, at the end, once you have a conclusion — see the worked exchange
+below.
 
 ---
 
@@ -41,7 +46,7 @@ the validation suite.
 python3 integrations/mcp/server.py --test
 ```
 ```json
-{"status": "ok", "runbooks_count": 21, "tools": ["list_runbooks", "get_runbook", "get_decision_tree", "query_command_safety", "route_symptom"]}
+{"status": "ok", "runbooks_count": 43, "tools": ["list_runbooks", "get_runbook", "get_decision_tree", "query_command_safety", "route_symptom", "log_diagnosis"]}
 ```
 
 Exercise a tool directly:
@@ -150,10 +155,25 @@ Model: [calls route_symptom("137")]
        → SAFE_READ, automatic_execution_allowed: true
 
        [runs it via the shell tool]
+
+       ## Likely Root Cause
+       Memory limit is 128Mi; describe shows the previous container reached
+       it before being killed.
+
+       ## Confidence Level
+       High
+
+       [calls log_diagnosis(signal="137", runbook="runbooks/pods/oomkilled.md",
+                             confidence="High",
+                             root_cause="limit 128Mi, usage exceeded it")]
+       → {"logged": true, "session_id": "...", "path": ".k8s-ai-troubleshooter/sessions.jsonl"}
 ```
 
-Note the model checked the tier **before** running the command, and used routing
-rather than guessing the runbook.
+Note the model checked the tier **before** running the command, used routing
+rather than guessing the runbook, and logged the conclusion at the end rather
+than after every intermediate step. See
+[docs/session-log.md](../session-log.md) for what accumulates there over many
+sessions.
 
 ---
 
@@ -166,6 +186,7 @@ rather than guessing the runbook.
 | Tools appear, calls fail | Relative path in config | Use an absolute path to `server.py` |
 | `route_symptom` errors | `pyyaml` missing | `pip install pyyaml` |
 | `get_runbook` returns isError | Wrong id | Ids are filenames without `.md`; call `list_runbooks` |
+| `log_diagnosis` returns isError | `confidence` not exactly `High`/`Medium`/`Low` | Match the enum exactly — "Certain" or "90%" are rejected, not coerced |
 | Server exits immediately | It reads stdin until EOF | Expected when run without a client attached |
 
 ---

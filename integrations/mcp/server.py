@@ -17,10 +17,17 @@ Exposed tools:
 - `get_decision_tree`     — decision tree YAML by id
 - `query_command_safety`  — safety tier and reason for a kubectl/helm command
 - `route_symptom`         — map an observed signal to the runbook that handles it
+- `log_diagnosis`         — record a conclusion to the session log for later review
 
 `route_symptom` is the one that changes how a session goes: it lets a client
 resolve `CrashLoopBackOff` or exit code 137 to a runbook deterministically,
 rather than inferring the right file from a list of names.
+
+`log_diagnosis` is the one that makes a session outlive the conversation it
+happened in. Nothing else in this project records that a diagnosis was ever
+made — call it once a session reaches a conclusion, so the same failure
+recurring next month is visible in `scripts/session_log.py --summary` instead
+of starting from zero every time.
 """
 
 import json
@@ -31,6 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+import session_log  # noqa: E402
 from safety import classify, classify_command_safety  # noqa: E402
 
 #: Fallback when a client does not name a protocol version. Any version the
@@ -38,14 +46,20 @@ from safety import classify, classify_command_safety  # noqa: E402
 #: the spec revises.
 DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 
-SERVER_INFO = {"name": "k8s-ai-troubleshooter", "version": "1.0.0"}
+#: Tracks the repository's release version — see ../../CHANGELOG.md.
+SERVER_INFO = {"name": "k8s-ai-troubleshooter", "version": "1.1.0"}
 
 # `classify_command_safety` is re-exported so that callers which imported it
 # from this module before the logic moved to scripts/safety.py keep working.
 __all__ = [
     "load_runbooks_index", "query_command_safety", "classify_command_safety",
-    "get_runbook", "get_decision_tree", "route_symptom", "list_tools", "handle_request", "serve",
+    "get_runbook", "get_decision_tree", "route_symptom", "log_diagnosis",
+    "list_tools", "handle_request", "serve",
 ]
+
+#: log_diagnosis accepts only these — an assistant stating "Certain" instead of
+#: "High" would otherwise corrupt scripts/session_log.py's --summary grouping.
+VALID_CONFIDENCE_LEVELS = frozenset({"High", "Medium", "Low"})
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +199,35 @@ def route_symptom(signal: str) -> dict:
     }
 
 
+def log_diagnosis(signal, runbook, confidence, root_cause=None,
+                   evidence_bundle=None, notes=None) -> dict:
+    """
+    Record a diagnosis to the session log.
+
+    Call this once, at the end of a session that reached a conclusion — not
+    per command, and not for a session that never got past "collecting
+    evidence". `confidence` must be one of scripts/session_log.py's three
+    tiers ("High"/"Medium"/"Low"); anything else is rejected outright rather
+    than written, because a session log whose confidence values drift
+    ("Certain", "Fairly sure", "90%") cannot be grouped or trended later,
+    which defeats the reason this tool exists.
+    """
+    if confidence not in VALID_CONFIDENCE_LEVELS:
+        raise ValueError(
+            f"confidence must be one of {sorted(VALID_CONFIDENCE_LEVELS)}, got {confidence!r}"
+        )
+    entry = session_log.record(
+        "mcp",
+        signal=signal,
+        runbook=runbook,
+        confidence=confidence,
+        root_cause=root_cause,
+        evidence_bundle=evidence_bundle,
+        notes=notes,
+    )
+    return {"logged": True, "session_id": entry["session_id"], "path": str(session_log.log_path())}
+
+
 # ---------------------------------------------------------------------------
 # MCP protocol
 # ---------------------------------------------------------------------------
@@ -237,6 +280,26 @@ TOOLS = [
             "required": ["signal"],
         },
     },
+    {
+        "name": "log_diagnosis",
+        "description": (
+            "Record a diagnosis conclusion to the session log. Call once per session, "
+            "after reaching a root cause — not per command. Confidence must be "
+            "'High', 'Medium', or 'Low'."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "signal": {"type": "string", "description": "The signal that started the investigation."},
+                "runbook": {"type": "string", "description": "The runbook path that was followed."},
+                "confidence": {"type": "string", "enum": ["High", "Medium", "Low"]},
+                "root_cause": {"type": "string", "description": "One-sentence root cause statement."},
+                "evidence_bundle": {"type": "string", "description": "Path to the evidence bundle, if collected."},
+                "notes": {"type": "string", "description": "Anything else worth recording, e.g. the remediation taken."},
+            },
+            "required": ["signal", "runbook", "confidence"],
+        },
+    },
 ]
 
 
@@ -255,6 +318,15 @@ def _call_tool(name, arguments):
         return query_command_safety(arguments["command"])
     if name == "route_symptom":
         return route_symptom(arguments["signal"])
+    if name == "log_diagnosis":
+        return log_diagnosis(
+            signal=arguments["signal"],
+            runbook=arguments["runbook"],
+            confidence=arguments["confidence"],
+            root_cause=arguments.get("root_cause"),
+            evidence_bundle=arguments.get("evidence_bundle"),
+            notes=arguments.get("notes"),
+        )
     raise ValueError(f"unknown tool: {name}")
 
 
