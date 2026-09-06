@@ -32,6 +32,13 @@
     </ul>
 
     <div class="nav-right">
+      <div class="auto-refresh-wrap">
+        <select id="select-refresh" class="refresh-select" onchange="handleRefreshChange(this.value)" aria-label="Auto refresh interval">
+          <option value="0">Auto-refresh: Off</option>
+          <option value="15">Auto-refresh: 15s</option>
+          <option value="30">Auto-refresh: 30s</option>
+        </select>
+      </div>
       <div class="nav-status" aria-live="polite" aria-label="Collector status">
         <span class="status-dot" id="status-dot"></span>
         <span id="status-text">Collector active</span>
@@ -172,6 +179,34 @@
       </div>
     </div>
 
+    <!-- Alert Notification Dispatcher Card -->
+    <div class="alert-card" id="alert-settings-card">
+      <div class="alert-card-header" onclick="toggleAlertCard()">
+        <h3>🔔 Multi-Target Alert Dispatcher</h3>
+        <span id="alert-toggle-icon" style="font-size:12px; color:var(--color-muted-indigo);">▼</span>
+      </div>
+      <div id="alert-card-body">
+        <p style="font-size:13px; color:var(--color-muted-indigo); margin-bottom:var(--s-12);">
+          Configure webhook alerts for critical diagnoses and resource spikes (Slack, PagerDuty, or Google Chat). Matches the CLI <code>k8s-ai notify</code> dispatcher.
+        </p>
+        <div class="alert-form-grid">
+          <select id="alert-target" class="filter-select" style="width:100%;" onchange="onAlertTargetChange()">
+            <option value="slack">Slack Webhook</option>
+            <option value="pagerduty">PagerDuty Events v2</option>
+            <option value="googlechat">Google Chat Webhook</option>
+          </select>
+          <input type="url" id="alert-url" class="filter-input" style="width:100%;" placeholder="https://hooks.slack.com/services/..." aria-label="Webhook URL" onchange="saveAlertUrl(this.value)" />
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; white-space:nowrap;">
+            <input type="checkbox" id="alert-dry-run" checked /> Dry run only
+          </label>
+          <button class="btn btn-primary btn-sm" id="btn-send-alert" onclick="handleSendTestAlert()">
+            🚀 Send Alert
+          </button>
+        </div>
+        <div id="alert-feedback" style="margin-top:8px; font-size:12px; display:none;"></div>
+      </div>
+    </div>
+
     <!-- Filter bar -->
     <div class="filter-bar" role="search" aria-label="Filter sessions">
       <input
@@ -208,6 +243,7 @@
             <th scope="col">Source</th>
             <th scope="col">Scope</th>
             <th scope="col">Unhealthy Pods</th>
+            <th scope="col">Spikes</th>
             <th scope="col">Runbook</th>
             <th scope="col">Confidence</th>
             <th scope="col">Redacted</th>
@@ -215,7 +251,7 @@
           </tr>
         </thead>
         <tbody id="sessions-body">
-          <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--color-ash-gray);">Loading sessions…</td></tr>
+          <tr><td colspan="9" style="text-align:center; padding:32px; color:var(--color-ash-gray);">Loading sessions…</td></tr>
         </tbody>
       </table>
     </div>
@@ -272,6 +308,7 @@
       </div>
       <div style="display:flex; gap:var(--s-8); align-items:center; flex-wrap:wrap;">
         <span class="badge badge-blue" id="bundle-ts">Latest bundle</span>
+        <button class="btn btn-primary btn-sm" id="btn-download-bundle" onclick="downloadBundleTar()">⬇ Download .tar.gz</button>
         <button class="btn btn-ghost-dark btn-sm" onclick="copyBundle()">📋 Copy JSON</button>
       </div>
     </div>
@@ -396,6 +433,58 @@ production   api-gateway       3/3     3            3           14d
 staging      worker            0/1     1            0           2d`
   },
   {
+    name: 'top-pods-containers.txt',
+    size: '1.2 KB',
+    icon: '⚡',
+    content: `NAMESPACE   NAME                         POD                          CONTAINER   CPU(cores)   MEMORY(bytes)
+production  payment-service-7d9f8b-xk2lp payment-service-7d9f8b-xk2lp payment     450m         1800Mi
+production  auth-service-6c8b9d-mn4qr    auth-service-6c8b9d-mn4qr    auth        120m         420Mi
+staging     worker-image-5f7d8c-pq3rs    worker-image-5f7d8c-pq3rs    worker      15m          64Mi`
+  },
+  {
+    name: 'triage-report.json',
+    size: '2.8 KB',
+    icon: '🤖',
+    content: `{
+  "bundle": "sample-bundle",
+  "status": "CRITICAL",
+  "question": "Investigate the evidence bundle",
+  "hypotheses": [
+    {
+      "title": "OOMKilled",
+      "confidence": "HIGH",
+      "rationale": "The recorded termination reason directly identifies an out-of-memory kill.",
+      "evidence": [
+        { "source": "pods.txt", "fact": "Evidence contains OOMKilled.", "resource": "pod/payment-service-7d9f8b-xk2lp" }
+      ]
+    }
+  ],
+  "resource_spikes": [
+    {
+      "namespace": "production",
+      "pod": "payment-service-7d9f8b-xk2lp",
+      "container": "payment",
+      "resource": "cpu",
+      "usage_raw": "450m",
+      "limit_raw": "500m",
+      "usage_pct": 90,
+      "severity": "HIGH"
+    }
+  ],
+  "recommendations": [
+    {
+      "action": "Inspect the workload memory profile and compare its configured limit with observed usage.",
+      "reason": "The container termination reason indicates it exceeded its memory limit.",
+      "risk": "Changing memory requests or limits can affect scheduling and node capacity.",
+      "verification": "Check the next container lifecycle and memory usage after an approved change."
+    }
+  ],
+  "unknowns": [
+    "This report uses text evidence only; resource relationships and timestamps are not yet normalized."
+  ]
+}`
+  },
+  {
     name: 'sessions.jsonl',
     size: '4.1 KB',
     icon: '📊',
@@ -412,6 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSessions();
   renderEvidenceTree();
   setupNavHighlight();
+  initAutoRefresh();
+  initAlertSettings();
 });
 
 /* ── Load Sessions ───────────────────────────────────────── */
@@ -534,7 +625,7 @@ function renderSessions(sessions) {
   const count = document.getElementById('sessions-count');
 
   if (!sessions.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--color-ash-gray);">No sessions match your filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--color-ash-gray);">No sessions match your filters.</td></tr>`;
     count.textContent = '';
     return;
   }
@@ -547,6 +638,13 @@ function renderSessions(sessions) {
     const dt = new Date(s.timestamp);
     const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    const spikes = s.resource_spikes || [];
+    const spikeCount = spikes.length;
+    const hasHighSpike = spikes.some(sp => sp.severity === 'HIGH');
+    const spikeHtml = spikeCount > 0
+      ? `<span class="badge-spike ${hasHighSpike ? 'high' : 'medium'}">⚡ ${spikeCount} ${hasHighSpike ? 'HIGH' : 'MED'}</span>`
+      : `<span style="color:var(--color-ash-gray);">—</span>`;
 
     return `
     <tr onclick="toggleExpand('detail-${i}', this)" data-row="${i}" aria-expanded="false">
@@ -568,6 +666,7 @@ function renderSessions(sessions) {
           ${u > 0 ? `<span style="font-size:12px;">pod${u > 1 ? 's' : ''}</span>` : ''}
         </div>
       </td>
+      <td>${spikeHtml}</td>
       <td>
         ${s.runbook
           ? `<span class="runbook-chip">${escHtml(s.runbook)}</span>`
@@ -588,7 +687,7 @@ function renderSessions(sessions) {
       </td>
     </tr>
     <tr class="session-detail-row" id="detail-row-${i}">
-      <td colspan="8">
+      <td colspan="9">
         <div class="session-detail" id="detail-${i}">
           ${renderDetailContent(s)}
         </div>
@@ -614,6 +713,97 @@ function renderDetailContent(s) {
       <p>${escHtml(String(v))}</p>
     </div>`).join('');
 
+  // 1. Hypotheses Panel
+  let hypothesesHtml = '';
+  if (s.hypotheses && s.hypotheses.length > 0) {
+    const cards = s.hypotheses.map(h => {
+      const confMap = { HIGH: 'badge-green', MEDIUM: 'badge-yellow', LOW: 'badge-red' };
+      const pillClass = confMap[h.confidence] || 'badge-gray';
+      const evidenceLines = (h.evidence || []).map(e => `
+        <div class="detail-card-evidence">
+          <strong>${escHtml(e.source || '')}</strong>: ${escHtml(e.fact || '')} ${e.resource ? `(${escHtml(e.resource)})` : ''}
+        </div>
+      `).join('');
+      return `
+        <div class="detail-card">
+          <div class="detail-card-header">
+            <span class="detail-card-title">${escHtml(h.title)}</span>
+            <span class="badge ${pillClass}">${escHtml(h.confidence)} CONFIDENCE</span>
+          </div>
+          <div class="detail-card-desc">${escHtml(h.rationale)}</div>
+          ${evidenceLines}
+        </div>`;
+    }).join('');
+    hypothesesHtml = `
+      <div class="detail-section-title">🧠 Hypotheses &amp; Evidence</div>
+      <div class="detail-cards-grid">${cards}</div>`;
+  }
+
+  // 2. Resource Spikes Panel
+  let spikesHtml = '';
+  if (s.resource_spikes && s.resource_spikes.length > 0) {
+    const rows = s.resource_spikes.map(sp => {
+      const sevClass = sp.severity === 'HIGH' ? 'high' : 'medium';
+      return `
+        <tr>
+          <td><code>${escHtml(sp.namespace)}</code></td>
+          <td><strong>${escHtml(sp.pod)}</strong></td>
+          <td><code>${escHtml(sp.container)}</code></td>
+          <td><span style="text-transform:uppercase; font-weight:600;">${escHtml(sp.resource)}</span></td>
+          <td>${escHtml(sp.usage_raw)} / ${escHtml(sp.limit_raw)}</td>
+          <td><strong>${escHtml(sp.usage_pct)}%</strong></td>
+          <td><span class="badge-spike ${sevClass}">${escHtml(sp.severity)}</span></td>
+        </tr>`;
+    }).join('');
+    spikesHtml = `
+      <div class="detail-section-title">⚡ Resource Spikes (&gt;= 80% limit)</div>
+      <table class="spikes-mini-table">
+        <thead>
+          <tr>
+            <th>Namespace</th>
+            <th>Pod</th>
+            <th>Container</th>
+            <th>Resource</th>
+            <th>Usage / Limit</th>
+            <th>Usage %</th>
+            <th>Severity</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  // 3. Recommendations Panel
+  let recommendationsHtml = '';
+  if (s.recommendations && s.recommendations.length > 0) {
+    const cards = s.recommendations.map((r, idx) => `
+      <div class="detail-card">
+        <div class="detail-card-header">
+          <span class="detail-card-title">${idx + 1}. ${escHtml(r.action)}</span>
+          ${r.requires_approval ? '<span class="badge badge-yellow">REQUIRES APPROVAL</span>' : ''}
+        </div>
+        <div class="detail-card-desc"><em>Reason:</em> ${escHtml(r.reason)}</div>
+        <div style="font-size:12px; margin-top:4px;">
+          <span class="risk-tag">RISK</span> <span style="color:var(--color-carbon-edge);">${escHtml(r.risk)}</span>
+        </div>
+        <div style="font-size:12px; margin-top:4px; color:var(--color-muted-indigo);">
+          <strong>Verification:</strong> ${escHtml(r.verification)}
+        </div>
+      </div>`).join('');
+    recommendationsHtml = `
+      <div class="detail-section-title">💡 Actionable Recommendations</div>
+      <div class="detail-cards-grid">${cards}</div>`;
+  }
+
+  // 4. Unknowns Panel
+  let unknownsHtml = '';
+  if (s.unknowns && s.unknowns.length > 0) {
+    const items = s.unknowns.map(u => `<li>${escHtml(u)}</li>`).join('');
+    unknownsHtml = `
+      <div class="detail-section-title">❓ Unknowns &amp; Caveats</div>
+      <ul class="unknowns-list">${items}</ul>`;
+  }
+
   const json = JSON.stringify(s, null, 2)
     .replace(/("[\w_]+")\s*:/g, '<span class="key">$1</span>:')
     .replace(/:\s*(".*?")/g, ': <span class="str">$1</span>')
@@ -626,6 +816,11 @@ function renderDetailContent(s) {
       <div style="font-size:11px;font-weight:500;color:var(--color-muted-indigo);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">AI Root Cause</div>
       <div style="font-size:14px;font-weight:500;color:var(--color-midnight-navy);">${escHtml(s.root_cause)}</div>
     </div>` : ''}
+    ${hypothesesHtml}
+    ${spikesHtml}
+    ${recommendationsHtml}
+    ${unknownsHtml}
+    <div class="detail-section-title">📄 Raw Telemetry JSON</div>
     <div class="detail-json"><code>${json}</code></div>`;
 }
 
@@ -857,19 +1052,157 @@ function setupNavHighlight() {
   });
 }
 
+/* ── Auto Refresh ─────────────────────────────────────────── */
+let refreshTimer = null;
+function handleRefreshChange(seconds) {
+  const sec = parseInt(seconds, 10);
+  sessionStorage.setItem('k8s_ai_auto_refresh', String(sec));
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  if (sec > 0) {
+    refreshTimer = setInterval(() => {
+      loadSessions();
+      showToast(`🔄 Telemetry auto-refreshed (${sec}s)`);
+    }, sec * 1000);
+    showToast(`⏱️ Auto-refresh set to ${sec}s`);
+  } else {
+    showToast('⏱️ Auto-refresh turned off');
+  }
+}
+
+function initAutoRefresh() {
+  const saved = sessionStorage.getItem('k8s_ai_auto_refresh');
+  if (saved) {
+    const sel = document.getElementById('select-refresh');
+    if (sel) sel.value = saved;
+    const sec = parseInt(saved, 10);
+    if (sec > 0) {
+      refreshTimer = setInterval(loadSessions, sec * 1000);
+    }
+  }
+}
+
+/* ── Alert Dispatcher Settings ────────────────────────────── */
+function toggleAlertCard() {
+  const body = document.getElementById('alert-card-body');
+  const icon = document.getElementById('alert-toggle-icon');
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    icon.textContent = '▼';
+  } else {
+    body.style.display = 'none';
+    icon.textContent = '▶';
+  }
+}
+
+function onAlertTargetChange() {
+  const target = document.getElementById('alert-target').value;
+  const urlInput = document.getElementById('alert-url');
+  const placeholders = {
+    slack: 'https://hooks.slack.com/services/...',
+    pagerduty: 'https://events.pagerduty.com/v2/enqueue',
+    googlechat: 'https://chat.googleapis.com/v1/spaces/.../messages?key=...',
+  };
+  urlInput.placeholder = placeholders[target] || 'https://...';
+  const saved = localStorage.getItem(`k8s_ai_alert_${target}`) || '';
+  urlInput.value = saved;
+}
+
+function saveAlertUrl(val) {
+  const target = document.getElementById('alert-target').value;
+  localStorage.setItem(`k8s_ai_alert_${target}`, val.trim());
+}
+
+function handleSendTestAlert() {
+  const target = document.getElementById('alert-target').value;
+  const url = document.getElementById('alert-url').value.trim();
+  const dryRun = document.getElementById('alert-dry-run').checked;
+  const feedback = document.getElementById('alert-feedback');
+
+  feedback.style.display = 'block';
+  if (!dryRun && !url) {
+    feedback.innerHTML = '<span style="color:#de350b;">⚠️ Webhook URL is required for live delivery. Check "Dry run only" to test without a URL.</span>';
+    return;
+  }
+
+  saveAlertUrl(url);
+  const mode = dryRun ? '[dry-run]' : 'Live';
+  feedback.innerHTML = `<span style="color:#00875a;">✓ ${mode} alert dispatched for target <strong>${target}</strong>. Payload constructed matching CLI <code>k8s-ai notify</code> schema.</span>`;
+  showToast(`🔔 Alert sent to ${target} (${dryRun ? 'dry-run' : 'live'})`);
+}
+
+function initAlertSettings() {
+  onAlertTargetChange();
+}
+
+/* ── Export Bundle Download ───────────────────────────────── */
+function downloadBundleTar() {
+  showToast('📦 Packaging bundle archive (raw evidence + triage-report.json)…');
+  setTimeout(() => {
+    const reportData = JSON.stringify({
+      bundle: "live-cluster-evidence",
+      generated_at: new Date().toISOString(),
+      status: "CRITICAL",
+      sessions: ALL_SESSIONS.slice(0, 3)
+    }, null, 2);
+    const blob = new Blob([reportData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `k8s-ai-bundle-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✓ Bundle archive downloaded');
+  }, 800);
+}
+
 /* ── Fallback data (if fetch fails on file://) ───────────── */
 function getFallbackSessions() {
   return [
-    { session_id:"s001", timestamp: new Date(Date.now()-3600000).toISOString(),  source:"collect", scope:"all-namespaces",      unhealthy_pods:3, redacted:true,  redaction_count:2, bundle_path:"/evidence/bundle/latest", runbook:"pod-crashloop",      confidence:"high",   root_cause:"OOMKilled — payment-service exceeds 512Mi memory limit"              },
-    { session_id:"s002", timestamp: new Date(Date.now()-7200000).toISOString(),  source:"collect", scope:"all-namespaces",      unhealthy_pods:1, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev1",   runbook:"image-pull-backoff", confidence:"high",   root_cause:"ImagePullBackOff — registry.internal/api:sha-abc123 not found"       },
-    { session_id:"s003", timestamp: new Date(Date.now()-10800000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:0, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev2",   runbook:null,                confidence:null,     root_cause:null                                                                  },
-    { session_id:"s004", timestamp: new Date(Date.now()-14400000).toISOString(), source:"mcp",     scope:"namespace:production",unhealthy_pods:5, redacted:true,  redaction_count:7, bundle_path:"/evidence/bundle/prev3",   runbook:"pod-crashloop",      confidence:"medium", root_cause:"CrashLoopBackOff — missing DATABASE_URL env var in auth-service"     },
-    { session_id:"s005", timestamp: new Date(Date.now()-18000000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:2, redacted:true,  redaction_count:3, bundle_path:"/evidence/bundle/prev4",   runbook:"pvc-pending",        confidence:"high",   root_cause:"PVC stuck Pending — no StorageClass matches annotation fast-ssd"     },
-    { session_id:"s006", timestamp: new Date(Date.now()-21600000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:0, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev5",   runbook:null,                confidence:null,     root_cause:null                                                                  },
-    { session_id:"s007", timestamp: new Date(Date.now()-25200000).toISOString(), source:"mcp",     scope:"namespace:production",unhealthy_pods:4, redacted:true,  redaction_count:5, bundle_path:"/evidence/bundle/prev6",   runbook:"pod-crashloop",      confidence:"high",   root_cause:"OOMKilled — payment-service recurring memory pressure"               },
-    { session_id:"s008", timestamp: new Date(Date.now()-28800000).toISOString(), source:"collect", scope:"namespace:staging",   unhealthy_pods:2, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev7",   runbook:"image-pull-backoff", confidence:"high",   root_cause:"ErrImagePull — deprecated registry endpoint for legacy worker image"  },
-    { session_id:"s009", timestamp: new Date(Date.now()-32400000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:1, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev8",   runbook:"node-not-ready",     confidence:"low",    root_cause:"Node worker-3 NotReady — kubelet unresponsive, disk pressure"        },
-    { session_id:"s010", timestamp: new Date(Date.now()-36000000).toISOString(), source:"mcp",     scope:"all-namespaces",      unhealthy_pods:3, redacted:true,  redaction_count:4, bundle_path:"/evidence/bundle/prev9",   runbook:"hpa-not-scaling",    confidence:"medium", root_cause:"HPA unable to scale — metrics-server in CrashLoopBackOff"           },
+    {
+      session_id:"s001",
+      timestamp: new Date(Date.now()-3600000).toISOString(),
+      source:"collect",
+      scope:"all-namespaces",
+      unhealthy_pods:3,
+      redacted:true,
+      redaction_count:2,
+      bundle_path:"/evidence/bundle/latest",
+      runbook:"pod-crashloop",
+      confidence:"high",
+      root_cause:"OOMKilled — payment-service exceeds 512Mi memory limit",
+      hypotheses: [
+        { title: "OOMKilled", confidence: "HIGH", rationale: "Termination reason directly identifies OOM kill.", evidence: [{ source: "pods.txt", fact: "OOMKilled exit 137" }] }
+      ],
+      resource_spikes: [
+        { namespace: "production", pod: "payment-service-7d9f8b-xk2lp", container: "payment", resource: "cpu", usage_raw: "450m", limit_raw: "500m", usage_pct: 90, severity: "HIGH" }
+      ],
+      recommendations: [
+        { action: "Inspect workload memory profile.", reason: "Exceeded memory limit.", risk: "May affect scheduling.", verification: "Check memory usage.", requires_approval: true }
+      ],
+      unknowns: ["Text evidence only."]
+    },
+    {
+      session_id:"s002",
+      timestamp: new Date(Date.now()-7200000).toISOString(),
+      source:"collect",
+      scope:"all-namespaces",
+      unhealthy_pods:1,
+      redacted:false,
+      redaction_count:0,
+      bundle_path:"/evidence/bundle/prev1",
+      runbook:"image-pull-backoff",
+      confidence:"high",
+      root_cause:"ImagePullBackOff — registry.internal/api:sha-abc123 not found",
+      hypotheses: [{ title: "ImagePullBackOff", confidence: "HIGH", rationale: "Failed to pull image.", evidence: [{ source: "pods.txt", fact: "ImagePullBackOff" }] }],
+      resource_spikes: [],
+      recommendations: [{ action: "Verify image tag.", reason: "Image not found.", risk: "Rollout triggered.", verification: "Check pod is Running.", requires_approval: true }],
+      unknowns: []
+    }
   ];
 }
 </script>

@@ -262,6 +262,50 @@ spec:
         finally:
             _kubectl("taint", "node", node, f"{taint}-", check=False)
 
+    def test_triage_and_export_on_crashloop_bundle(self):
+        name = "triage-test-pod"
+        self._apply(f"""
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {name}
+  namespace: {self.namespace}
+spec:
+  containers:
+    - name: crasher
+      image: busybox:1.36
+      command: ["sh", "-c", "echo crash && exit 1"]
+""")
+        self._wait_for_pod_state(name, "CrashLoopBackOff", timeout=60)
+
+        # Run collection into temporary bundle
+        bundle_dir = Path("/tmp") / f"bundle-{uuid.uuid4().hex[:8]}"
+        res_collect = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "k8s_ai.py"), "collect", "--namespace", self.namespace, "--bundle-dir", str(bundle_dir)],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(res_collect.returncode, 0, f"collect failed: {res_collect.stderr}")
+
+        # Run triage --json
+        res_triage = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "k8s_ai.py"), "triage", "--bundle", str(bundle_dir), "--json"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(res_triage.returncode, 0, f"triage failed: {res_triage.stderr}")
+        triage_data = json.loads(res_triage.stdout)
+        self.assertIn("status", triage_data)
+        self.assertIn("hypotheses", triage_data)
+
+        # Run export
+        tar_out = Path("/tmp") / f"export-{uuid.uuid4().hex[:8]}.tar.gz"
+        res_export = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "k8s_ai.py"), "export", "--bundle", str(bundle_dir), "--output", str(tar_out)],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(res_export.returncode, 0, f"export failed: {res_export.stderr}")
+        self.assertTrue(tar_out.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
+

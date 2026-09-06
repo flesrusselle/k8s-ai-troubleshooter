@@ -1,9 +1,14 @@
 """Deterministic investigation over redacted evidence bundles."""
 
+import re
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
-from .models import Evidence, Hypothesis, InvestigationReport, Recommendation
+from .models import Evidence, Hypothesis, InvestigationReport, Recommendation, ResourceSpike
+
+# Default threshold (%) above which a container is considered spiking.
+# Override via the spike_threshold parameter on investigate_bundle().
+DEFAULT_SPIKE_THRESHOLD = 80
 
 SIGNALS: Tuple[Tuple[str, str], ...] = (
     ("OOMKilled", "OOMKilled"),
@@ -83,7 +88,179 @@ def _read_evidence(bundle: Path) -> List[Tuple[Path, str]]:
     return evidence
 
 
-def investigate_bundle(bundle_path: str, question: str = "Investigate the evidence bundle") -> InvestigationReport:
+# ── Resource unit conversion helpers ──────────────────────────────────────────
+
+def _parse_cpu_millicores(value: str) -> Optional[float]:
+    """Convert a kubectl top CPU string (e.g. '450m', '2') to millicores."""
+    value = value.strip()
+    if value.endswith("m"):
+        try:
+            return float(value[:-1])
+        except ValueError:
+            return None
+    try:
+        return float(value) * 1000
+    except ValueError:
+        return None
+
+
+def _parse_memory_bytes(value: str) -> Optional[float]:
+    """Convert a kubectl top memory string to bytes."""
+    value = value.strip()
+    units = {
+        "Ki": 1024, "Mi": 1024 ** 2, "Gi": 1024 ** 3,
+        "K":  1000, "M":  1000 ** 2, "G":  1000 ** 3,
+    }
+    for suffix, multiplier in units.items():
+        if value.endswith(suffix):
+            try:
+                return float(value[: -len(suffix)]) * multiplier
+            except ValueError:
+                return None
+    try:
+        return float(value)  # plain bytes
+    except ValueError:
+        return None
+
+
+def _pct(used: Optional[float], limit: Optional[float]) -> Optional[int]:
+    """Return integer percentage, or None if either value is missing / zero."""
+    if used is None or limit is None or limit == 0:
+        return None
+    return min(round(used / limit * 100), 100)
+
+
+# ── Spike detection ───────────────────────────────────────────────────────────
+
+# Pattern for a kubectl top pods --containers line:
+#   NAMESPACE  POD  CONTAINER  CPU(cores)  MEMORY(bytes)
+_TOP_LINE_RE = re.compile(
+    r"^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$"
+)
+
+# Pattern for a kubectl describe pod resource limits line:
+#   <whitespace>cpu: 500m   or   memory: 2Gi
+_LIMIT_RE = re.compile(r"^\s+(?:cpu|memory):\s+(\S+)", re.IGNORECASE)
+
+
+def detect_spikes(
+    bundle: Path,
+    threshold: int = DEFAULT_SPIKE_THRESHOLD,
+) -> List[ResourceSpike]:
+    """Parse kubectl top output files in the bundle and return containers that
+    exceed *threshold* percent of their configured resource limit.
+
+    Spike detection is **best-effort**: if limits cannot be parsed from the
+    describe output, the container is skipped rather than guessed.
+    """
+    spikes: List[ResourceSpike] = []
+
+    # Collect all top-pods-containers files.  The collector writes them with
+    # names containing "top" (e.g. "top-pods.txt", "top-pods-containers.txt").
+    top_files = [
+        p for p in _files(bundle)
+        if "top" in p.name.lower() and p.suffix in (".txt", "")
+    ]
+    if not top_files:
+        return spikes
+
+    # Build a coarse limits map: (namespace, pod, container) -> {cpu_m, mem_b}
+    # by scanning describe files.  This is approximate — describe output can
+    # list Limits under a Containers block.  We extract the first cpu/memory
+    # limit values following a "Limits:" heading.
+    limits_map: Dict[Tuple[str, str, str], Dict[str, float]] = {}
+    describe_files = [
+        p for p in _files(bundle)
+        if "describe" in p.name.lower() and p.suffix in (".txt", "")
+    ]
+    for dp in describe_files:
+        try:
+            text = dp.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        # Quick scan: find pod name, then Limits block
+        current_pod = None
+        current_ns = None
+        in_limits = False
+        cpu_limit: Optional[float] = None
+        mem_limit: Optional[float] = None
+        for line in text.splitlines():
+            # Detect pod/namespace header lines from kubectl describe pods output
+            if line.startswith("Name:"):
+                current_pod = line.split(":", 1)[1].strip()
+                in_limits = False
+                cpu_limit = None
+                mem_limit = None
+            elif line.startswith("Namespace:"):
+                current_ns = line.split(":", 1)[1].strip()
+            elif "Limits:" in line:
+                in_limits = True
+            elif in_limits and ("Requests:" in line or "Environment:" in line or "Mounts:" in line):
+                in_limits = False
+            elif in_limits and current_pod and current_ns:
+                m = _LIMIT_RE.match(line)
+                if m:
+                    val = m.group(1)
+                    if "cpu" in line.lower():
+                        cpu_limit = _parse_cpu_millicores(val)
+                    elif "memory" in line.lower():
+                        mem_limit = _parse_memory_bytes(val)
+                    if cpu_limit is not None and mem_limit is not None:
+                        key = (current_ns, current_pod, "<all>")
+                        limits_map[key] = {"cpu_m": cpu_limit, "mem_b": mem_limit}
+
+    for tp in top_files:
+        try:
+            lines = tp.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            m = _TOP_LINE_RE.match(line)
+            if not m:
+                continue
+            ns, pod, container, cpu_raw, mem_raw = m.groups()
+            if ns.upper() in ("NAMESPACE", "NAME"):  # header row
+                continue
+
+            # Look up limits: prefer exact container key, fall back to pod-level.
+            lim = limits_map.get((ns, pod, container)) or limits_map.get((ns, pod, "<all>"))
+
+            cpu_used = _parse_cpu_millicores(cpu_raw)
+            mem_used = _parse_memory_bytes(mem_raw)
+
+            # CPU spike
+            cpu_pct = _pct(cpu_used, lim.get("cpu_m") if lim else None)
+            if cpu_pct is not None and cpu_pct >= threshold:
+                severity = "HIGH" if cpu_pct >= 90 else "MEDIUM"
+                spikes.append(ResourceSpike(
+                    namespace=ns, pod=pod, container=container,
+                    resource="cpu",
+                    usage_raw=cpu_raw,
+                    limit_raw=f"{round(lim['cpu_m'])}m" if lim else "unknown",
+                    usage_pct=cpu_pct,
+                    severity=severity,
+                ))
+
+            # Memory spike
+            mem_pct = _pct(mem_used, lim.get("mem_b") if lim else None)
+            if mem_pct is not None and mem_pct >= threshold:
+                severity = "HIGH" if mem_pct >= 90 else "MEDIUM"
+                spikes.append(ResourceSpike(
+                    namespace=ns, pod=pod, container=container,
+                    resource="memory",
+                    usage_raw=mem_raw,
+                    limit_raw=f"{round((lim['mem_b']) / 1024 / 1024)}Mi" if lim else "unknown",
+                    usage_pct=mem_pct,
+                    severity=severity,
+                ))
+    return spikes
+
+
+def investigate_bundle(
+    bundle_path: str,
+    question: str = "Investigate the evidence bundle",
+    spike_threshold: int = DEFAULT_SPIKE_THRESHOLD,
+) -> InvestigationReport:
     """Return a conservative report based only on text present in a bundle."""
     bundle = Path(bundle_path)
     if not bundle.is_dir():
@@ -95,6 +272,7 @@ def investigate_bundle(bundle_path: str, question: str = "Investigate the eviden
         )
 
     observations = _read_evidence(bundle)
+    spikes = detect_spikes(bundle, threshold=spike_threshold)
     facts: List[Evidence] = []
     hypotheses: List[Hypothesis] = []
     recommendations: List[Recommendation] = []
@@ -139,12 +317,21 @@ def investigate_bundle(bundle_path: str, question: str = "Investigate the eviden
         "This report uses text evidence only; resource relationships and timestamps are not yet normalized.",
         "No remediation was executed or verified.",
     ]
+    # Elevate status when spikes are present alongside hypotheses.
+    has_high_spike = any(s.severity == "HIGH" for s in spikes)
+    if has_high_spike:
+        status = "CRITICAL"
+    elif any(h.confidence == "MEDIUM" for h in hypotheses):
+        status = "DEGRADED"
+    else:
+        status = "ATTENTION"
     return InvestigationReport(
         question=question,
         bundle=str(bundle),
-        status="DEGRADED" if any(h.confidence == "MEDIUM" for h in hypotheses) else "ATTENTION",
+        status=status,
         hypotheses=hypotheses,
         evidence=facts,
         recommendations=recommendations,
         unknowns=unknowns,
+        resource_spikes=spikes,
     )

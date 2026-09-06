@@ -1,0 +1,62 @@
+name: CLI-UI Parity & Asset Check
+
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "k8s_ai_core/**"
+      - "ui/**"
+      - "helm/k8s-ai-troubleshooter/files/ui/**"
+      - "tests/**"
+      - ".github/workflows/parity-check.yml"
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity-check:
+    name: Validate CLI ↔ UI Parity & Schemas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jsonschema requests
+
+      - name: Run UI Parity Unit Tests
+        run: |
+          python -m unittest tests/test_ui_parity.py -v
+
+      - name: Verify CLI triage JSON matches schema expectations
+        run: |
+          python scripts/k8s_ai.py triage --bundle tests/fixtures/sample-bundle --json > /tmp/report.json
+          python -c "
+          import json
+          with open('/tmp/report.json') as f:
+              data = json.load(f)
+          # Assert core parity fields
+          assert 'hypotheses' in data, 'Missing hypotheses'
+          assert 'resource_spikes' in data, 'Missing resource_spikes'
+          assert 'recommendations' in data, 'Missing recommendations'
+          assert 'unknowns' in data, 'Missing unknowns'
+          assert len(data['resource_spikes']) >= 1, 'Expected resource spikes'
+          print('✓ CLI report JSON validated successfully')
+          "
+
+      - name: Verify Helm Assets Byte-for-Byte Sync
+        run: |
+          diff -u ui/index.html helm/k8s-ai-troubleshooter/files/ui/index.html
+          diff -u ui/index.css helm/k8s-ai-troubleshooter/files/ui/index.css
+          diff -u ui/mock-sessions.json helm/k8s-ai-troubleshooter/files/ui/mock-sessions.json
+          echo "✓ Helm UI assets are in exact sync"

@@ -34,9 +34,23 @@ class Recommendation:
     requires_approval: bool = True
 
 
+@dataclass(frozen=True)
+class ResourceSpike:
+    """A container whose resource usage exceeds a configured threshold."""
+
+    namespace: str
+    pod: str
+    container: str
+    resource: str        # "cpu" or "memory"
+    usage_raw: str       # e.g. "450m" or "1800Mi"
+    limit_raw: str       # e.g. "500m" or "2Gi"
+    usage_pct: int       # 0-100, rounded
+    severity: str        # "HIGH" (>90%) or "MEDIUM" (80-90%)
+
+
 @dataclass
 class InvestigationReport:
-    """Portable report contract shared by CLI, future UI, and AI adapters."""
+    """Portable report contract shared by CLI, UI, and AI adapters."""
 
     question: str
     bundle: str
@@ -45,6 +59,8 @@ class InvestigationReport:
     evidence: List[Evidence] = field(default_factory=list)
     recommendations: List[Recommendation] = field(default_factory=list)
     unknowns: List[str] = field(default_factory=list)
+    resource_spikes: List[ResourceSpike] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+

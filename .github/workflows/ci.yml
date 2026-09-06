@@ -57,11 +57,25 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyyaml jsonschema
+          pip install pyyaml jsonschema requests
 
       - name: Run Repository Structural Validation
         run: |
           python scripts/validate.py
+
+      - name: Validate UI Assets & Helm Sync
+        run: |
+          diff -u ui/index.html helm/k8s-ai-troubleshooter/files/ui/index.html
+          diff -u ui/index.css helm/k8s-ai-troubleshooter/files/ui/index.css
+          diff -u ui/mock-sessions.json helm/k8s-ai-troubleshooter/files/ui/mock-sessions.json
+
+      - name: Verify CLI Commands (triage, export, notify)
+        run: |
+          python scripts/k8s_ai.py triage --bundle tests/fixtures/sample-bundle --json > /tmp/triage-report.json
+          python -c "import json; r=json.load(open('/tmp/triage-report.json')); assert r['status'] == 'CRITICAL'; assert len(r['resource_spikes']) >= 1; assert len(r['hypotheses']) >= 1"
+          python scripts/k8s_ai.py export --bundle tests/fixtures/sample-bundle --output /tmp/test-bundle.tar.gz
+          tar -tzf /tmp/test-bundle.tar.gz | grep "triage-report.json"
+          python scripts/k8s_ai.py triage --bundle tests/fixtures/sample-bundle --notify-target slack --notify-dry-run
 
       - name: Run Python Test Suite
         run: |

@@ -10,7 +10,68 @@
     "bundle_path": "/evidence/bundle/2026-09-06T05:00:03",
     "runbook": "pod-crashloop",
     "confidence": "high",
-    "root_cause": "OOMKilled — payment-service container exceeds 512Mi memory limit"
+    "root_cause": "OOMKilled — payment-service container exceeds 512Mi memory limit",
+    "hypotheses": [
+      {
+        "title": "OOMKilled",
+        "confidence": "HIGH",
+        "rationale": "The recorded termination reason directly identifies an out-of-memory kill.",
+        "evidence": [
+          { "source": "pods.txt", "fact": "Evidence contains OOMKilled.", "resource": "pod/payment-service-7d9f8b-xk2lp" },
+          { "source": "describe-pods.txt", "fact": "Last State: Terminated with Reason: OOMKilled (exit code 137).", "resource": "pod/payment-service-7d9f8b-xk2lp" }
+        ]
+      },
+      {
+        "title": "CrashLoopBackOff",
+        "confidence": "MEDIUM",
+        "rationale": "The pod is repeatedly failing to start; the underlying exit cause still needs confirmation.",
+        "evidence": [
+          { "source": "pods.txt", "fact": "Status CrashLoopBackOff with 14 restarts.", "resource": "pod/payment-service-7d9f8b-xk2lp" }
+        ]
+      }
+    ],
+    "resource_spikes": [
+      {
+        "namespace": "production",
+        "pod": "payment-service-7d9f8b-xk2lp",
+        "container": "payment",
+        "resource": "cpu",
+        "usage_raw": "450m",
+        "limit_raw": "500m",
+        "usage_pct": 90,
+        "severity": "HIGH"
+      },
+      {
+        "namespace": "production",
+        "pod": "payment-service-7d9f8b-xk2lp",
+        "container": "payment",
+        "resource": "memory",
+        "usage_raw": "1800Mi",
+        "limit_raw": "2048Mi",
+        "usage_pct": 88,
+        "severity": "MEDIUM"
+      }
+    ],
+    "recommendations": [
+      {
+        "action": "Inspect the workload memory profile and compare its configured limit with observed usage.",
+        "reason": "The container termination reason indicates it exceeded its memory limit.",
+        "risk": "Changing memory requests or limits can affect scheduling and node capacity.",
+        "verification": "Check the next container lifecycle and memory usage after an approved change.",
+        "requires_approval": true
+      },
+      {
+        "action": "Inspect current and previous container logs, events, probes, and the owning workload revision.",
+        "reason": "Repeated container startup failure is present, but the exit cause requires confirmation.",
+        "risk": "Restarting or changing a workload can destroy diagnostic state or affect availability.",
+        "verification": "Confirm the pod becomes Ready and restart counts stop increasing.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": [
+      "This report uses text evidence only; resource relationships and timestamps are not yet normalized.",
+      "No remediation was executed or verified."
+    ]
   },
   {
     "session_id": "a1b2c3d4-0002-4e5f-8a9b-c0d1e2f3a4b5",
@@ -23,7 +84,31 @@
     "bundle_path": "/evidence/bundle/2026-09-06T04:00:01",
     "runbook": "image-pull-backoff",
     "confidence": "high",
-    "root_cause": "ImagePullBackOff — registry.internal/api:sha-abc123 not found in GHCR"
+    "root_cause": "ImagePullBackOff — registry.internal/api:sha-abc123 not found in GHCR",
+    "hypotheses": [
+      {
+        "title": "ImagePullBackOff",
+        "confidence": "HIGH",
+        "rationale": "Container runtime failed to pull the requested image from the configured registry.",
+        "evidence": [
+          { "source": "pods.txt", "fact": "Waiting reason ImagePullBackOff.", "resource": "pod/worker-image-5f7d8c-pq3rs" },
+          { "source": "events.txt", "fact": "Failed to pull image: not found", "resource": "pod/worker-image-5f7d8c-pq3rs" }
+        ]
+      }
+    ],
+    "resource_spikes": [],
+    "recommendations": [
+      {
+        "action": "Verify image tag existence in registry and pull secrets on the service account.",
+        "reason": "Image pull failed with not found error.",
+        "risk": "Updating the deployment image tag triggers a rollout.",
+        "verification": "Check pod status moves to Running.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": [
+      "Image registry credentials cannot be inspected directly by read-only agent."
+    ]
   },
   {
     "session_id": "a1b2c3d4-0003-4e5f-8a9b-c0d1e2f3a4b5",
@@ -36,7 +121,13 @@
     "bundle_path": "/evidence/bundle/2026-09-06T03:00:04",
     "runbook": null,
     "confidence": null,
-    "root_cause": null
+    "root_cause": null,
+    "hypotheses": [],
+    "resource_spikes": [],
+    "recommendations": [],
+    "unknowns": [
+      "No supported failure signal was found in the evidence bundle."
+    ]
   },
   {
     "session_id": "a1b2c3d4-0004-4e5f-8a9b-c0d1e2f3a4b5",
@@ -49,7 +140,41 @@
     "bundle_path": "/evidence/bundle/2026-09-06T02:00:02",
     "runbook": "pod-crashloop",
     "confidence": "medium",
-    "root_cause": "CrashLoopBackOff — missing DATABASE_URL env var in auth-service deployment"
+    "root_cause": "CrashLoopBackOff — missing DATABASE_URL env var in auth-service deployment",
+    "hypotheses": [
+      {
+        "title": "CrashLoopBackOff",
+        "confidence": "HIGH",
+        "rationale": "Process exits immediately with exit code 1 due to missing mandatory configuration.",
+        "evidence": [
+          { "source": "pods.txt", "fact": "CrashLoopBackOff with 8 restarts.", "resource": "pod/auth-service-6c8b9d-mn4qr" }
+        ]
+      }
+    ],
+    "resource_spikes": [
+      {
+        "namespace": "production",
+        "pod": "auth-service-6c8b9d-mn4qr",
+        "container": "auth",
+        "resource": "memory",
+        "usage_raw": "420Mi",
+        "limit_raw": "512Mi",
+        "usage_pct": 82,
+        "severity": "MEDIUM"
+      }
+    ],
+    "recommendations": [
+      {
+        "action": "Check ConfigMap/Secret bindings for DATABASE_URL and review deployment manifests.",
+        "reason": "Container logs show application shutdown caused by missing database connection string.",
+        "risk": "Applying ConfigMap change will restart auth pods.",
+        "verification": "Verify application health probe returns 200 OK.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": [
+      "Secret values are masked and cannot be validated in plaintext."
+    ]
   },
   {
     "session_id": "a1b2c3d4-0005-4e5f-8a9b-c0d1e2f3a4b5",
@@ -62,7 +187,30 @@
     "bundle_path": "/evidence/bundle/2026-09-06T01:00:01",
     "runbook": "pvc-pending",
     "confidence": "high",
-    "root_cause": "PVC stuck Pending — no StorageClass matches annotation fast-ssd in namespace staging"
+    "root_cause": "PVC stuck Pending — no StorageClass matches annotation fast-ssd in namespace staging",
+    "hypotheses": [
+      {
+        "title": "PVCPending",
+        "confidence": "HIGH",
+        "rationale": "Storage provisioner failed to bind volume claims requesting non-existent storage class.",
+        "evidence": [
+          { "source": "events.txt", "fact": "StorageClass fast-ssd not found", "resource": "pvc/data-worker-0" }
+        ]
+      }
+    ],
+    "resource_spikes": [],
+    "recommendations": [
+      {
+        "action": "Inspect available StorageClasses using kubectl get storageclass and update PVC annotation.",
+        "reason": "Requested storage class does not exist on cluster.",
+        "risk": "Modifying PVC spec requires recreating the PVC resource.",
+        "verification": "Check PVC status changes from Pending to Bound.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": [
+      "Cloud provider volume quota status not fetched."
+    ]
   },
   {
     "session_id": "a1b2c3d4-0006-4e5f-8a9b-c0d1e2f3a4b5",
@@ -75,7 +223,11 @@
     "bundle_path": "/evidence/bundle/2026-09-06T00:00:03",
     "runbook": null,
     "confidence": null,
-    "root_cause": null
+    "root_cause": null,
+    "hypotheses": [],
+    "resource_spikes": [],
+    "recommendations": [],
+    "unknowns": []
   },
   {
     "session_id": "a1b2c3d4-0007-4e5f-8a9b-c0d1e2f3a4b5",
@@ -88,7 +240,30 @@
     "bundle_path": "/evidence/bundle/2026-09-05T23:00:02",
     "runbook": "node-not-ready",
     "confidence": "low",
-    "root_cause": "Node worker-3 NotReady — kubelet unresponsive, disk pressure event logged"
+    "root_cause": "Node worker-3 NotReady — kubelet unresponsive, disk pressure event logged",
+    "hypotheses": [
+      {
+        "title": "NodeNotReady",
+        "confidence": "MEDIUM",
+        "rationale": "Node heartbeat missed and DiskPressure condition set.",
+        "evidence": [
+          { "source": "nodes.txt", "fact": "worker-3 status NotReady", "resource": "node/worker-3" }
+        ]
+      }
+    ],
+    "resource_spikes": [],
+    "recommendations": [
+      {
+        "action": "Check node disk utilization and systemd kubelet service status on host.",
+        "reason": "Kubelet stopped posting status updates.",
+        "risk": "Node restart can evict pods to other nodes.",
+        "verification": "Verify node status changes back to Ready.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": [
+      "Node host OS logs not directly accessible from in-cluster read-only client."
+    ]
   },
   {
     "session_id": "a1b2c3d4-0008-4e5f-8a9b-c0d1e2f3a4b5",
@@ -101,7 +276,51 @@
     "bundle_path": "/evidence/bundle/2026-09-05T22:00:01",
     "runbook": "pod-crashloop",
     "confidence": "high",
-    "root_cause": "OOMKilled — payment-service recurring memory pressure, 4th occurrence this week"
+    "root_cause": "OOMKilled — payment-service recurring memory pressure, 4th occurrence this week",
+    "hypotheses": [
+      {
+        "title": "OOMKilled",
+        "confidence": "HIGH",
+        "rationale": "Repeated memory spikes exceed pod limit during checkout traffic surges.",
+        "evidence": [
+          { "source": "pods.txt", "fact": "Evidence contains OOMKilled exit code 137.", "resource": "pod/payment-service-7d9f8b-xk2lp" }
+        ]
+      }
+    ],
+    "resource_spikes": [
+      {
+        "namespace": "production",
+        "pod": "payment-service-7d9f8b-xk2lp",
+        "container": "payment",
+        "resource": "cpu",
+        "usage_raw": "460m",
+        "limit_raw": "500m",
+        "usage_pct": 92,
+        "severity": "HIGH"
+      },
+      {
+        "namespace": "production",
+        "pod": "payment-service-7d9f8b-xk2lp",
+        "container": "payment",
+        "resource": "memory",
+        "usage_raw": "1950Mi",
+        "limit_raw": "2048Mi",
+        "usage_pct": 95,
+        "severity": "HIGH"
+      }
+    ],
+    "recommendations": [
+      {
+        "action": "Increase memory limits from 2Gi to 4Gi or configure horizontal pod autoscaling.",
+        "reason": "Traffic peaks consistently push memory past 95% threshold.",
+        "risk": "Requires cluster memory headroom.",
+        "verification": "Monitor pod memory during peak hours.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": [
+      "Heap dump profiling requires container exec which is disallowed."
+    ]
   },
   {
     "session_id": "a1b2c3d4-0009-4e5f-8a9b-c0d1e2f3a4b5",
@@ -114,7 +333,11 @@
     "bundle_path": "/evidence/bundle/2026-09-05T21:00:04",
     "runbook": null,
     "confidence": null,
-    "root_cause": null
+    "root_cause": null,
+    "hypotheses": [],
+    "resource_spikes": [],
+    "recommendations": [],
+    "unknowns": []
   },
   {
     "session_id": "a1b2c3d4-0010-4e5f-8a9b-c0d1e2f3a4b5",
@@ -127,7 +350,28 @@
     "bundle_path": "/evidence/bundle/2026-09-05T20:00:02",
     "runbook": "image-pull-backoff",
     "confidence": "high",
-    "root_cause": "ErrImagePull — deprecated registry endpoint for legacy worker image"
+    "root_cause": "ErrImagePull — deprecated registry endpoint for legacy worker image",
+    "hypotheses": [
+      {
+        "title": "ImagePullBackOff",
+        "confidence": "HIGH",
+        "rationale": "Registry returned 404 for deprecated image repository.",
+        "evidence": [
+          { "source": "events.txt", "fact": "Failed to pull image legacy-worker:v1", "resource": "pod/worker-image-5f7d8c-pq3rs" }
+        ]
+      }
+    ],
+    "resource_spikes": [],
+    "recommendations": [
+      {
+        "action": "Migrate image reference to supported container registry artifact store.",
+        "reason": "Legacy registry decommissioned.",
+        "risk": "Low risk.",
+        "verification": "Check image pull succeeds.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": []
   },
   {
     "session_id": "a1b2c3d4-0011-4e5f-8a9b-c0d1e2f3a4b5",
@@ -140,7 +384,11 @@
     "bundle_path": "/evidence/bundle/2026-09-05T19:00:01",
     "runbook": null,
     "confidence": null,
-    "root_cause": null
+    "root_cause": null,
+    "hypotheses": [],
+    "resource_spikes": [],
+    "recommendations": [],
+    "unknowns": []
   },
   {
     "session_id": "a1b2c3d4-0012-4e5f-8a9b-c0d1e2f3a4b5",
@@ -153,6 +401,40 @@
     "bundle_path": "/evidence/bundle/2026-09-05T18:00:03",
     "runbook": "hpa-not-scaling",
     "confidence": "medium",
-    "root_cause": "HPA unable to scale — metrics-server pod in CrashLoopBackOff, no CPU metrics available"
+    "root_cause": "HPA unable to scale — metrics-server pod in CrashLoopBackOff, no CPU metrics available",
+    "hypotheses": [
+      {
+        "title": "HPANotScaling",
+        "confidence": "MEDIUM",
+        "rationale": "HPA controller reports missing pod resource metrics from metrics API.",
+        "evidence": [
+          { "source": "pods.txt", "fact": "metrics-server pod CrashLoopBackOff", "resource": "pod/metrics-server-8d9f7b-ab1cd" }
+        ]
+      }
+    ],
+    "resource_spikes": [
+      {
+        "namespace": "kube-system",
+        "pod": "metrics-server-8d9f7b-ab1cd",
+        "container": "metrics-server",
+        "resource": "memory",
+        "usage_raw": "170Mi",
+        "limit_raw": "200Mi",
+        "usage_pct": 85,
+        "severity": "MEDIUM"
+      }
+    ],
+    "recommendations": [
+      {
+        "action": "Diagnose metrics-server startup failure in kube-system namespace.",
+        "reason": "HPA cannot compute target replica count without metrics API.",
+        "risk": "Autoscaling remains paused until metrics server is operational.",
+        "verification": "Run kubectl top pods to confirm metrics availability.",
+        "requires_approval": true
+      }
+    ],
+    "unknowns": [
+      "Aggregation layer API registration status not verified."
+    ]
   }
 ]
