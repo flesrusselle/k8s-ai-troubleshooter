@@ -12,7 +12,8 @@ ARG HELM_VERSION=v4.2.4
 # Target CPU architecture — supports linux/amd64 and linux/arm64
 ARG TARGETARCH=amd64
 
-RUN apk add --no-cache ca-certificates curl tar \
+RUN apk update && apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates curl tar \
     && KUBECTL_ARCH="${TARGETARCH}" \
     && curl --fail --silent --show-error --location \
        "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${KUBECTL_ARCH}/kubectl" \
