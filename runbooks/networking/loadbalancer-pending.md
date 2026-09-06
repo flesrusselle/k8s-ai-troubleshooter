@@ -21,16 +21,16 @@ minutes.
 
 ```bash
 # 1. The events say why, when there is a controller to say it
-kubectl describe service <name> -n <namespace>
+kubectl describe service <name> --namespace <namespace>
 
 # 2. Is there a controller to provision it at all?
 kubectl get pods -A | grep -Ei 'cloud-controller|metallb|kube-vip|nginx-ingress'
 
 # 3. Cloud controller manager logs, if present
-kubectl logs -n kube-system -l component=cloud-controller-manager --tail=100
+kubectl logs --namespace kube-system -l component=cloud-controller-manager --tail=100
 
 # 4. The Service spec, including any provider annotations
-kubectl get service <name> -n <namespace> -o yaml
+kubectl get service <name> --namespace <namespace> -o yaml
 ```
 
 ## Detailed Investigation
@@ -95,7 +95,7 @@ Confirm the missing-implementation hypothesis by checking whether any controller
 is watching Services:
 
 ```bash
-kubectl get events -n <namespace> --field-selector involvedObject.name=<service>
+kubectl get events --namespace <namespace> --field-selector involvedObject.name=<service>
 ```
 
 An empty event list for a `LoadBalancer` Service that has existed for minutes
@@ -115,12 +115,12 @@ may bypass controls attached to the load balancer.
 
 ## Human Approval Required
 - `kubectl apply -f <metallb-config>.yaml`
-- `kubectl patch service <name> -n <ns> -p '{"spec":{"type":"NodePort"}}'` — changes how the Service is exposed
+- `kubectl patch service <name> --namespace <ns> -p '{"spec":{"type":"NodePort"}}'` — changes how the Service is exposed
 - Cloud-side quota or IAM changes — outside the cluster, and outside this project's scope
 
 ## Verification
 ```bash
-kubectl get service <service> -n <namespace>
+kubectl get service <service> --namespace <namespace>
 ```
 Verified when `EXTERNAL-IP` shows an address and traffic reaches the backend from
 outside the cluster. An assigned IP proves provisioning succeeded, not that

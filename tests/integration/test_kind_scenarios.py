@@ -94,7 +94,7 @@ class TestKindScenarios(unittest.TestCase):
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            result = _kubectl("get", "pod", name, "-n", self.namespace, "-o", "json", check=False)
+            result = _kubectl("get", "pod", name, "--namespace", self.namespace, "--output", "json", check=False)
             if result.returncode == 0:
                 last = json.loads(result.stdout)
                 if predicate(last):
@@ -109,7 +109,7 @@ class TestKindScenarios(unittest.TestCase):
         deadline = time.time() + timeout
         while time.time() < deadline:
             result = _kubectl(
-                "get", "events", "-n", self.namespace,
+                "get", "events", "--namespace", self.namespace,
                 "--field-selector", f"involvedObject.name={object_name},reason={reason}",
                 "-o", "json", check=False,
             )
@@ -225,7 +225,7 @@ spec:
         # refusal to place a pod that mounts an unbound PVC.
         message = self._wait_for_event(pod_name, "FailedScheduling", timeout=45)
 
-        pvc = json.loads(_kubectl("get", "pvc", pvc_name, "-n", self.namespace, "-o", "json").stdout)
+        pvc = json.loads(_kubectl("get", "pvc", pvc_name, "--namespace", self.namespace, "--output", "json").stdout)
         self.assertEqual(pvc["status"]["phase"], "Pending")
 
         route = route_symptom(message)

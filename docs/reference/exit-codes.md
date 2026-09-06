@@ -5,7 +5,7 @@ narrows the cause before a single log line is read, and it is available from
 `describe` without hunting for the right container name.
 
 ```bash
-kubectl get pod <pod> -n <namespace> \
+kubectl get pod <pod> --namespace <namespace> \
   -o jsonpath='{range .status.containerStatuses[*]}{.name}{"\t"}{.lastState.terminated.exitCode}{"\t"}{.lastState.terminated.reason}{"\n"}{end}'
 ```
 
@@ -42,7 +42,7 @@ common senders:
 | Expired grace period | Occurs during shutdown, after a SIGTERM that was ignored |
 
 ```bash
-kubectl get pod <pod> -n <namespace> \
+kubectl get pod <pod> --namespace <namespace> \
   -o jsonpath='{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}'
 ```
 
@@ -66,10 +66,10 @@ in the background and then returns.
 
 ```bash
 # Current and previous termination state
-kubectl describe pod <pod> -n <namespace> | grep -A6 'Last State'
+kubectl describe pod <pod> --namespace <namespace> | grep -A6 'Last State'
 
 # Init containers report separately
-kubectl get pod <pod> -n <namespace> \
+kubectl get pod <pod> --namespace <namespace> \
   -o jsonpath='{range .status.initContainerStatuses[*]}{.name}{"\t"}{.lastState.terminated.exitCode}{"\n"}{end}'
 ```
 

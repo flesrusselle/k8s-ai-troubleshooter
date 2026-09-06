@@ -18,13 +18,13 @@ Triggered when container state displays `OOMKilled` or last termination reason i
 
 ```bash
 # 1. Inspect container termination reason
-kubectl get pod <pod-name> -n <namespace> -o jsonpath='{.status.containerStatuses[*].lastState.terminated}'
+kubectl get pod <pod-name> --namespace <namespace> -o jsonpath='{.status.containerStatuses[*].lastState.terminated}'
 
 # 2. Check memory limits vs requests
-kubectl get pod <pod-name> -n <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{" Limit="}{.resources.limits.memory}{" Request="}{.resources.requests.memory}{"\n"}{end}'
+kubectl get pod <pod-name> --namespace <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{" Limit="}{.resources.limits.memory}{" Request="}{.resources.requests.memory}{"\n"}{end}'
 
 # 3. Check node memory pressure (requires Metrics Server if using top)
-kubectl top pod <pod-name> -n <namespace> --containers || true
+kubectl top pod <pod-name> --namespace <namespace> --containers || true
 ```
 
 ## Detailed Investigation
@@ -69,14 +69,14 @@ pods Pending if the cluster lacks headroom. Raising limits namespace-wide can
 exhaust a ResourceQuota and block unrelated deployments.
 
 ## Human Approval Required
-- `kubectl set resources deployment/<deployment-name> -c=<container-name> --limits=memory=1Gi -n <namespace>`
+- `kubectl set resources deployment/<deployment-name> -c=<container-name> --limits=memory=1Gi --namespace <namespace>`
 - `helm upgrade <release-name> <chart> -f values.yaml`
 
 ## Verification
 ```bash
-kubectl get pod <pod-name> -n <namespace> \
+kubectl get pod <pod-name> --namespace <namespace> \
   -o jsonpath='{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}'
-kubectl top pod <pod-name> -n <namespace> --containers
+kubectl top pod <pod-name> --namespace <namespace> --containers
 ```
 Verified when `lastState.terminated.reason` is no longer `OOMKilled` after a
 full workload cycle, and steady-state usage sits comfortably below the new

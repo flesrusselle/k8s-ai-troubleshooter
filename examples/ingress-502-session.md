@@ -17,9 +17,9 @@ User reports HTTP 502 Bad Gateway when accessing `api.example.com`.
 
 ## What I Checked
 - `kubectl get ingress -A`
-- `kubectl get svc -n production`
-- `kubectl get endpoints api-service -n production`
-- `kubectl describe pod -n production -l app=api`
+- `kubectl get svc --namespace production`
+- `kubectl get endpoints api-service --namespace production`
+- `kubectl describe pod --namespace production -l app=api`
 
 ## Evidence
 1. Ingress `api-ingress` routes `api.example.com/` to backend service `api-service:8080`.
@@ -39,6 +39,6 @@ Inspect application database connection pools causing `/healthz` 500 errors or t
 Human approval required before applying deployment manifest changes:
 
 ```bash
-kubectl rollout restart deployment/api-deployment -n production
+kubectl rollout restart deployment/api-deployment --namespace production
 ```
 ```

@@ -18,13 +18,13 @@ Triggered when a pod status displays `CrashLoopBackOff` or container restart cou
 
 ```bash
 # 1. Inspect pod container state and exit code
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <pod-name> --namespace <namespace>
 
 # 2. Fetch logs from previous failed instance
-kubectl logs <pod-name> -n <namespace> --previous --all-containers
+kubectl logs <pod-name> --namespace <namespace> --previous --all-containers
 
 # 3. Check current logs
-kubectl logs <pod-name> -n <namespace> --all-containers --tail=100
+kubectl logs <pod-name> --namespace <namespace> --all-containers --tail=100
 ```
 
 ## Detailed Investigation
@@ -84,12 +84,12 @@ secret change affects every pod consuming it, which may include workloads you
 are not looking at.
 
 ## Human Approval Required
-- `kubectl rollout restart deployment/<deployment-name> -n <namespace>`
+- `kubectl rollout restart deployment/<deployment-name> --namespace <namespace>`
 - `helm upgrade <release-name> <chart> -f values.yaml`
 
 ## Verification
 ```bash
-kubectl get pod <pod-name> -n <namespace> -w
+kubectl get pod <pod-name> --namespace <namespace> -w
 ```
 The restart count must stop climbing and the pod must reach `Running` and stay
 there for longer than its previous crash interval. A pod that survives 30
@@ -97,7 +97,7 @@ seconds when it previously crashed in 2 has not necessarily recovered — compar
 against the old lifetime, not against zero.
 
 ## Rollback
-`kubectl rollout undo deployment/<name> -n <namespace>` returns the previous
+`kubectl rollout undo deployment/<name> --namespace <namespace>` returns the previous
 pod template. It does not undo a ConfigMap or Secret edit, so if the fix was a
 config change, revert that separately and restart again.
 

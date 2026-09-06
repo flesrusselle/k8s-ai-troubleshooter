@@ -15,7 +15,7 @@ commands:
     official_docs: "https://helm.sh/docs/helm/helm_list/"
 
   - name: "helm-status"
-    command: "helm status <release-name> -n <namespace>"
+    command: "helm status <release-name> --namespace <namespace>"
     category: "helm"
     purpose: "Get detailed status, last deployed timestamp, notes, and resources for Helm release"
     safety: "SAFE_READ"
@@ -28,7 +28,7 @@ commands:
     official_docs: "https://helm.sh/docs/helm/helm_status/"
 
   - name: "helm-get-values"
-    command: "helm get values <release-name> -n <namespace>"
+    command: "helm get values <release-name> --namespace <namespace>"
     category: "helm"
     purpose: "Fetch active user-supplied value overrides for release"
     safety: "SAFE_READ"
@@ -41,7 +41,7 @@ commands:
     official_docs: "https://helm.sh/docs/helm/helm_get_values/"
 
   - name: "helm-get-manifest"
-    command: "helm get manifest <release-name> -n <namespace>"
+    command: "helm get manifest <release-name> --namespace <namespace>"
     category: "helm"
     purpose: "Fetch rendered Kubernetes manifests for release"
     safety: "SAFE_READ"
@@ -54,7 +54,7 @@ commands:
     official_docs: "https://helm.sh/docs/helm/helm_get_manifest/"
 
   - name: "helm-history"
-    command: "helm history <release-name> -n <namespace>"
+    command: "helm history <release-name> --namespace <namespace>"
     category: "helm"
     purpose: "Fetch revision history for release to inspect past upgrades/rollbacks"
     safety: "SAFE_READ"
@@ -67,7 +67,7 @@ commands:
     official_docs: "https://helm.sh/docs/helm/helm_history/"
 
   - name: "helm-rollback"
-    command: "helm rollback <release-name> <revision> -n <namespace>"
+    command: "helm rollback <release-name> <revision> --namespace <namespace>"
     category: "helm"
     purpose: "Roll back release to a previous working revision"
     safety: "HUMAN_APPROVAL_REQUIRED"
@@ -81,7 +81,7 @@ commands:
     official_docs: "https://helm.sh/docs/helm/helm_rollback/"
 
   - name: "helm-uninstall"
-    command: "helm uninstall <release-name> -n <namespace>"
+    command: "helm uninstall <release-name> --namespace <namespace>"
     category: "helm"
     purpose: "Uninstall release and purge associated resources from cluster"
     safety: "DESTRUCTIVE"

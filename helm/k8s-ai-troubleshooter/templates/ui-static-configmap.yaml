@@ -1,0 +1,16 @@
+{{- if .Values.ui.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "k8s-ai-troubleshooter.fullname" . }}-ui-static
+  labels:
+    {{- include "k8s-ai-troubleshooter.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ui
+data:
+  index.html: |-
+{{ .Files.Get "files/ui/index.html" | indent 4 }}
+  index.css: |-
+{{ .Files.Get "files/ui/index.css" | indent 4 }}
+  mock-sessions.json: |-
+{{ .Files.Get "files/ui/mock-sessions.json" | indent 4 }}
+{{- end }}

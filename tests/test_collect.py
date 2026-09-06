@@ -47,7 +47,7 @@ class TestCollectorCannotMutate(unittest.TestCase):
 
     def test_assert_safe_refuses_an_approval_tier_command(self):
         with self.assertRaises(UnsafeCommand):
-            assert_safe("kubectl rollout restart deployment/api -n prod")
+            assert_safe("kubectl rollout restart deployment/api --namespace prod")
 
     def test_assert_safe_refuses_a_chained_command_hiding_a_delete(self):
         with self.assertRaises(UnsafeCommand):
@@ -56,13 +56,13 @@ class TestCollectorCannotMutate(unittest.TestCase):
     def test_run_command_refuses_before_executing(self):
         """The guard must sit in front of the subprocess, not after it."""
         with self.assertRaises(UnsafeCommand):
-            collect.run_command("kubectl delete pod web-1 -n prod --force")
+            collect.run_command("kubectl delete pod web-1 --namespace prod --force")
 
 
 class TestPlanScoping(unittest.TestCase):
     def test_namespace_is_threaded_into_namespaced_commands(self):
         commands = [c for _, c in build_plan(namespace="payments")]
-        self.assertTrue(any("get pods -n payments" in c for c in commands))
+        self.assertTrue(any("get pods --namespace payments" in c for c in commands))
 
     def test_all_namespaces_flag_is_used(self):
         commands = [c for _, c in build_plan(all_namespaces=True)]
@@ -194,7 +194,7 @@ class TestCaptureIsRedacted(unittest.TestCase):
             out_dir = Path(tmp)
             stats = write_capture(
                 out_dir, "describe",
-                "kubectl describe pod web-1 -n prod",
+                "kubectl describe pod web-1 --namespace prod",
                 "Environment:\n      DB_PASSWORD:  hunter2\n",
             )
             written = (out_dir / "describe.txt").read_text()
@@ -205,9 +205,9 @@ class TestCaptureIsRedacted(unittest.TestCase):
     def test_capture_records_the_originating_command(self):
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
-            write_capture(out_dir, "pods", "kubectl get pods -n prod", "NAME   READY\n")
+            write_capture(out_dir, "pods", "kubectl get pods --namespace prod", "NAME   READY\n")
             written = (out_dir / "pods.txt").read_text()
-            self.assertIn("$ kubectl get pods -n prod", written)
+            self.assertIn("$ kubectl get pods --namespace prod", written)
 
 
 class TestCollectWritesToSessionLog(unittest.TestCase):

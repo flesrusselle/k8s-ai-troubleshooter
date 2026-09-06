@@ -17,10 +17,10 @@ Triggered whenever investigating a failing `Deployment`, `StatefulSet`, `DaemonS
 
 ```bash
 # 1. Check Helm manager label on Kubernetes workload
-kubectl get deployment <deployment-name> -n <namespace> -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}'
+kubectl get deployment <deployment-name> --namespace <namespace> -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}'
 
 # 2. Check Helm release name annotation
-kubectl get deployment <deployment-name> -n <namespace> -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}'
+kubectl get deployment <deployment-name> --namespace <namespace> -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}'
 ```
 
 ## Detailed Investigation
@@ -29,8 +29,8 @@ kubectl get deployment <deployment-name> -n <namespace> -o jsonpath='{.metadata.
    Standard Helm releases inject `app.kubernetes.io/managed-by: Helm`.
 2. **Retrieve Helm Release Information**:
    ```bash
-   helm status <release-name> -n <namespace>
-   helm get values <release-name> -n <namespace>
+   helm status <release-name> --namespace <namespace>
+   helm get values <release-name> --namespace <namespace>
    ```
 
 ## Decision Tree
@@ -64,9 +64,9 @@ case leaves the resource orphaned and unmanaged by any subsequent upgrade.
 
 ## Verification
 ```bash
-kubectl get <resource> <name> -n <namespace> \
+kubectl get <resource> <name> --namespace <namespace> \
   -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}{"\n"}'
-helm upgrade --dry-run <release> <chart> -n <namespace>
+helm upgrade --dry-run <release> <chart> --namespace <namespace>
 ```
 Verified when the annotation names the intended release and a dry-run upgrade
 completes without an ownership error. Use the dry run — it is the whole point of

@@ -77,7 +77,7 @@ Required.
 >
 > **Scope** — following `runbooks/triage.md`:
 > ```bash
-> kubectl get pods -n staging --field-selector=status.phase!=Running
+> kubectl get pods --namespace staging --field-selector=status.phase!=Running
 > ```
 > ```text
 > NAME              READY   STATUS              RESTARTS   AGE
@@ -91,21 +91,21 @@ Required.
 > `decision-trees/storage.yaml`.
 >
 > ```bash
-> kubectl describe pod analytics-1 -n staging
+> kubectl describe pod analytics-1 --namespace staging
 > ```
 > ```text
 > Events:
 >   Warning  FailedScheduling  pod has unbound immediate PersistentVolumeClaims
 > ```
 > ```bash
-> kubectl get pvc -n staging
+> kubectl get pvc --namespace staging
 > ```
 > ```text
 > NAME               STATUS    VOLUME   CAPACITY   STORAGECLASS   AGE
 > data-analytics-1   Pending                       fast-ssd       12m
 > ```
 > ```bash
-> kubectl describe pvc data-analytics-1 -n staging
+> kubectl describe pvc data-analytics-1 --namespace staging
 > ```
 > ```text
 > Warning  ProvisioningFailed  failed to provision volume:

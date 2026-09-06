@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>k8s AI Troubleshooter — Cluster Diagnostics Dashboard</title>
+  <meta name="description" content="AI-powered Kubernetes diagnostics dashboard. Visualize evidence collection sessions, cluster health trends, recurring issues, and bundle outputs in real time." />
+  <meta name="theme-color" content="#101214" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231868db'/><text x='50%' y='58%' dominant-baseline='middle' text-anchor='middle' font-size='18' font-weight='800' font-family='sans-serif' fill='white'>k8</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NAVIGATION BAR
+═══════════════════════════════════════════════════════════ -->
+<header class="nav" role="banner">
+  <nav class="nav-inner" aria-label="Primary navigation">
+    <a class="nav-logo" href="#" aria-label="k8s AI Troubleshooter home">
+      <div class="nav-logo-mark" aria-hidden="true">k8</div>
+      <span class="nav-logo-text">k8s AI Troubleshooter</span>
+    </a>
+
+    <ul class="nav-links" role="list">
+      <li><a href="#dashboard"  class="active" id="nav-dashboard">Dashboard</a></li>
+      <li><a href="#sessions"   id="nav-sessions">Sessions</a></li>
+      <li><a href="#recurring"  id="nav-recurring">Patterns</a></li>
+      <li><a href="#evidence"   id="nav-evidence">Evidence</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <div class="nav-status" aria-live="polite" aria-label="Collector status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Collector active</span>
+      </div>
+      <button class="btn btn-primary btn-sm" id="btn-run-now" onclick="handleRunNow()">
+        ▶ Run Now
+      </button>
+    </div>
+  </nav>
+</header>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     HERO BANNER — Dark panel with confetti
+═══════════════════════════════════════════════════════════ -->
+<section class="hero" id="dashboard" aria-label="Dashboard overview">
+  <!-- Confetti geometric shapes (decorative) -->
+  <div class="confetti-shape confetti-violet-left" aria-hidden="true"></div>
+  <div class="confetti-shape confetti-yellow-left"  aria-hidden="true"></div>
+  <div class="confetti-shape confetti-blue-right"   aria-hidden="true"></div>
+  <div class="confetti-shape confetti-green-right"  aria-hidden="true"></div>
+  <div class="confetti-shape confetti-violet-right" aria-hidden="true"></div>
+
+  <div class="hero-content">
+    <div class="hero-left">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot" aria-hidden="true"></span>
+        <span id="hero-datasource-label">AI-Powered · Read-Only · Auto-Redacting</span>
+      </div>
+      <h1 class="hero-title">
+        Kubernetes <span>diagnostics,</span><br />without the noise.
+      </h1>
+      <p class="hero-subtitle">
+        Scheduled evidence collection, automated redaction, and AI-assisted root cause
+        analysis — all in a single bundle your team can trust.
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-yellow" id="btn-view-bundle" onclick="document.getElementById('evidence').scrollIntoView({behavior:'smooth'})">
+          📦 View Latest Bundle
+        </button>
+        <button class="btn btn-ghost" onclick="document.getElementById('sessions').scrollIntoView({behavior:'smooth'})">
+          View Sessions →
+        </button>
+      </div>
+
+      <div class="hero-meta" id="hero-meta">
+        <div class="hero-meta-item">
+          <span class="hero-meta-value" id="meta-total">—</span>
+          <span class="hero-meta-label">Total sessions</span>
+        </div>
+        <div class="hero-meta-item">
+          <span class="hero-meta-value" id="meta-unhealthy">—</span>
+          <span class="hero-meta-label">Unhealthy pods found</span>
+        </div>
+        <div class="hero-meta-item">
+          <span class="hero-meta-value" id="meta-redactions">—</span>
+          <span class="hero-meta-label">Secrets redacted</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-status-card" role="complementary" aria-label="Cluster status">
+      <div class="hero-status-card-title">Cluster Status</div>
+      <div class="hero-status-row">
+        <span class="hero-status-row-label">Last run</span>
+        <span class="hero-status-row-value" id="card-last-run">—</span>
+      </div>
+      <div class="hero-status-row">
+        <span class="hero-status-row-label">Schedule</span>
+        <span class="hero-status-row-value">Every hour</span>
+      </div>
+      <div class="hero-status-row">
+        <span class="hero-status-row-label">Scope</span>
+        <span class="hero-status-row-value">All namespaces</span>
+      </div>
+      <div class="hero-status-row">
+        <span class="hero-status-row-label">Unhealthy pods</span>
+        <span class="hero-status-row-value warn" id="card-unhealthy">—</span>
+      </div>
+      <div class="hero-status-row">
+        <span class="hero-status-row-label">Last diagnosis</span>
+        <span class="hero-status-row-value" id="card-last-runbook">—</span>
+      </div>
+      <div class="hero-status-row">
+        <span class="hero-status-row-label">Confidence</span>
+        <span class="hero-status-row-value ok" id="card-confidence">—</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     STATS BAND — Lavender
+═══════════════════════════════════════════════════════════ -->
+<section class="stats-band" aria-label="Summary statistics">
+  <div class="container">
+    <h2 class="stats-band-title">Diagnostics at a Glance</h2>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon blue" aria-hidden="true">🔍</div>
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-label">Collection runs</div>
+        <div class="stat-delta up" id="stat-total-delta">— last 24h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red" aria-hidden="true">⚠️</div>
+        <div class="stat-value" id="stat-unhealthy">0</div>
+        <div class="stat-label">Unhealthy pods found</div>
+        <div class="stat-delta" id="stat-unhealthy-delta">— total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow" aria-hidden="true">🔒</div>
+        <div class="stat-value" id="stat-redactions">0</div>
+        <div class="stat-label">Secrets redacted</div>
+        <div class="stat-delta up">✓ Never persisted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green" aria-hidden="true">🔁</div>
+        <div class="stat-value" id="stat-recurring">0</div>
+        <div class="stat-label">Recurring issues</div>
+        <div class="stat-delta" id="stat-recurring-delta">— seen 3+ times</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SESSIONS TABLE — White canvas
+═══════════════════════════════════════════════════════════ -->
+<section class="section" id="sessions" aria-label="Session history">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Session History</h2>
+        <p class="section-subtitle">Every collection and diagnosis run. Click a row to expand details.</p>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar" role="search" aria-label="Filter sessions">
+      <input
+        type="text"
+        class="filter-input"
+        id="filter-search"
+        placeholder="Search runbook, root cause, scope…"
+        aria-label="Search sessions"
+        oninput="filterSessions()"
+      />
+      <select class="filter-select" id="filter-source" onchange="filterSessions()" aria-label="Filter by source">
+        <option value="">All sources</option>
+        <option value="collect">collect</option>
+        <option value="mcp">mcp</option>
+      </select>
+      <select class="filter-select" id="filter-confidence" onchange="filterSessions()" aria-label="Filter by confidence">
+        <option value="">All confidence</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <select class="filter-select" id="filter-health" onchange="filterSessions()" aria-label="Filter by health">
+        <option value="">All runs</option>
+        <option value="unhealthy">Issues found</option>
+        <option value="healthy">Clean runs</option>
+      </select>
+    </div>
+
+    <div style="margin-top: var(--s-20);" class="table-wrap">
+      <table class="sessions-table" id="sessions-table" aria-label="Sessions">
+        <thead>
+          <tr>
+            <th scope="col">Time</th>
+            <th scope="col">Source</th>
+            <th scope="col">Scope</th>
+            <th scope="col">Unhealthy Pods</th>
+            <th scope="col">Runbook</th>
+            <th scope="col">Confidence</th>
+            <th scope="col">Redacted</th>
+            <th scope="col"><span class="sr-only">Expand</span></th>
+          </tr>
+        </thead>
+        <tbody id="sessions-body">
+          <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--color-ash-gray);">Loading sessions…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption" style="margin-top:var(--s-12); color:var(--color-muted-indigo);" id="sessions-count"></p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     RECURRING ISSUES — Dark inverted panel
+═══════════════════════════════════════════════════════════ -->
+<section class="recurring-section" id="recurring" aria-label="Recurring issues">
+  <div class="confetti-shape recurring-confetti-1" aria-hidden="true"></div>
+  <div class="confetti-shape recurring-confetti-2" aria-hidden="true"></div>
+  <div class="container">
+    <div class="recurring-inner">
+      <div class="recurring-left">
+        <h2 class="section-title" style="color:var(--color-pure-white);">
+          Patterns Worth<br />Investigating
+        </h2>
+        <p class="section-subtitle" style="color:var(--color-ash-gray); margin-top:var(--s-12);">
+          These runbooks have fired 3 or more times. Fixing the instance
+          isn't enough — the pattern needs attention.
+        </p>
+        <div style="margin-top:var(--s-32);">
+          <a href="#sessions" class="btn btn-yellow" style="margin-right:var(--s-12);">
+            View All Sessions
+          </a>
+          <a href="#" class="btn btn-ghost" onclick="handleRunNow(); return false;">
+            Run Diagnostics
+          </a>
+        </div>
+      </div>
+
+      <div class="recurring-right">
+        <ul class="recurring-list" id="recurring-list" role="list" aria-label="Recurring runbooks">
+          <li style="color:var(--color-ash-gray); font-size:14px; padding:var(--s-16);">Loading patterns…</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     EVIDENCE BUNDLE VIEWER — White canvas
+═══════════════════════════════════════════════════════════ -->
+<section class="section evidence-section" id="evidence" aria-label="Evidence bundle viewer">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Evidence Bundle</h2>
+        <p class="section-subtitle">Browse the latest collected bundle. All output is redacted before persisting.</p>
+      </div>
+      <div style="display:flex; gap:var(--s-8); align-items:center; flex-wrap:wrap;">
+        <span class="badge badge-blue" id="bundle-ts">Latest bundle</span>
+        <button class="btn btn-ghost-dark btn-sm" onclick="copyBundle()">📋 Copy JSON</button>
+      </div>
+    </div>
+
+    <div class="evidence-grid">
+      <!-- File tree -->
+      <div class="evidence-tree">
+        <div class="evidence-tree-header">Bundle files</div>
+        <ul class="evidence-tree-list" id="evidence-tree" role="list" aria-label="Bundle file list">
+        </ul>
+      </div>
+
+      <!-- Content viewer -->
+      <div class="evidence-viewer">
+        <div class="evidence-viewer-header">
+          <div class="evidence-viewer-title">
+            <span>📄</span>
+            <span id="viewer-filename">Select a file</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <span class="badge badge-gray" id="viewer-size"></span>
+          </div>
+        </div>
+        <div class="evidence-viewer-body">
+          <pre id="viewer-content"><span style="color:#8b949e;">← Select a file from the tree to view its contents</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════════════ -->
+<footer class="footer" role="contentinfo">
+  <div class="container">
+    <div class="footer-inner">
+      <a class="footer-logo" href="#" aria-label="k8s AI Troubleshooter home">
+        <div class="nav-logo-mark" aria-hidden="true">k8</div>
+        <span class="nav-logo-text">k8s AI Troubleshooter</span>
+      </a>
+      <ul class="footer-links" role="list">
+        <li><a href="https://github.com/example/k8s-ai-troubleshooter" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="#" onclick="alert('Docs coming soon')">Docs</a></li>
+        <li><a href="#" onclick="alert('RBAC guide coming soon')">RBAC Guide</a></li>
+        <li><a href="#" onclick="alert('Changelog coming soon')">Changelog</a></li>
+      </ul>
+      <p class="footer-copy">v0.2.0 · MIT License · Built for cluster operators</p>
+    </div>
+  </div>
+</footer>
+
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════ -->
+<script>
+/* ── Data & State ────────────────────────────────────────── */
+let ALL_SESSIONS = [];
+let ACTIVE_EXPANDED = null;
+let ACTIVE_EVIDENCE_FILE = null;
+
+/* Mock evidence bundle files */
+const EVIDENCE_FILES = [
+  {
+    name: 'cluster-info.txt',
+    size: '2.1 KB',
+    icon: '📋',
+    content: `Kubernetes control plane is running at https://10.0.0.1:6443
+CoreDNS is running at https://10.0.0.1:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+Server Version:
+  kubernetes v1.37.0
+  
+Platform: linux/amd64
+Go Version: go1.22.4`
+  },
+  {
+    name: 'nodes.txt',
+    size: '1.4 KB',
+    icon: '🖥️',
+    content: `NAME       STATUS   ROLES           AGE   VERSION   INTERNAL-IP   OS-IMAGE
+master-1   Ready    control-plane   42d   v1.37.0   10.0.0.10     Ubuntu 22.04
+worker-1   Ready    <none>          42d   v1.37.0   10.0.0.11     Ubuntu 22.04
+worker-2   Ready    <none>          42d   v1.37.0   10.0.0.12     Ubuntu 22.04
+worker-3   NotReady <none>          42d   v1.37.0   10.0.0.13     Ubuntu 22.04`
+  },
+  {
+    name: 'pods.txt',
+    size: '3.8 KB',
+    icon: '📦',
+    content: `NAMESPACE    NAME                         READY   STATUS             RESTARTS   AGE
+production   payment-service-7d9f8b-xk2lp  0/1     OOMKilled          14         2h
+production   auth-service-6c8b9d-mn4qr     0/1     CrashLoopBackOff   8          1h
+staging      worker-image-5f7d8c-pq3rs     0/1     ErrImagePull       3          30m
+kube-system  metrics-server-8d9f7b-ab1cd   0/1     CrashLoopBackOff   5          45m`
+  },
+  {
+    name: 'events.txt',
+    size: '5.2 KB',
+    icon: '📣',
+    content: `LAST SEEN   TYPE      REASON              OBJECT                            MESSAGE
+2m          Warning   OOMKilling          pod/payment-service-7d9f8b-xk2lp  Container payment exceeded memory limit
+5m          Warning   BackOff             pod/auth-service-6c8b9d-mn4qr     Back-off restarting failed container
+8m          Warning   Failed              pod/worker-image-5f7d8c-pq3rs     Failed to pull image "registry.internal/api:sha-abc123": not found
+15m         Warning   NodeNotReady        node/worker-3                     Node worker-3 status is now: NodeNotReady
+1h          Normal    Scheduled           pod/payment-service-7d9f8b-xk2lp  Successfully assigned production/payment-service-7d9f8b-xk2lp to worker-1`
+  },
+  {
+    name: 'deployments.txt',
+    size: '1.8 KB',
+    icon: '🚀',
+    content: `NAMESPACE    NAME              READY   UP-TO-DATE   AVAILABLE   AGE
+production   payment-service   0/3     3            0           14d
+production   auth-service      0/2     2            0           14d
+production   api-gateway       3/3     3            3           14d
+staging      worker            0/1     1            0           2d`
+  },
+  {
+    name: 'sessions.jsonl',
+    size: '4.1 KB',
+    icon: '📊',
+    content: `{"session_id":"a1b2c3d4","timestamp":"2026-09-06T05:00:03Z","source":"collect","unhealthy_pods":3,"runbook":"pod-crashloop","confidence":"high"}
+{"session_id":"a1b2c3d5","timestamp":"2026-09-06T04:00:01Z","source":"collect","unhealthy_pods":1,"runbook":"image-pull-backoff","confidence":"high"}
+{"session_id":"a1b2c3d6","timestamp":"2026-09-06T03:00:04Z","source":"collect","unhealthy_pods":0}
+{"session_id":"a1b2c3d7","timestamp":"2026-09-06T02:00:02Z","source":"mcp","unhealthy_pods":5,"runbook":"pod-crashloop","confidence":"medium"}
+{"session_id":"a1b2c3d8","timestamp":"2026-09-06T01:00:01Z","source":"collect","unhealthy_pods":2,"runbook":"pvc-pending","confidence":"high"}`
+  },
+];
+
+/* ── Boot ────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  loadSessions();
+  renderEvidenceTree();
+  setupNavHighlight();
+});
+
+/* ── Load Sessions ───────────────────────────────────────── */
+async function loadSessions() {
+  // 1. Check for live sessions from mounted evidence volume (sessions.jsonl)
+  try {
+    const liveResp = await fetch('evidence/sessions.jsonl');
+    if (liveResp.ok) {
+      const text = await liveResp.text();
+      const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length > 0) {
+        ALL_SESSIONS = lines.map(line => JSON.parse(line)).reverse();
+        updateDataSourceBadge('🟢 Live Telemetry');
+        renderAll();
+        return;
+      }
+    }
+  } catch (_) {}
+
+  // 2. Fall back to mock-sessions.json
+  try {
+    const resp = await fetch('mock-sessions.json');
+    if (!resp.ok) throw new Error('fetch failed');
+    ALL_SESSIONS = await resp.json();
+    updateDataSourceBadge('Demo Dataset');
+  } catch (_) {
+    // 3. Inline fallback if fetching fails (e.g. opened as file://)
+    ALL_SESSIONS = getFallbackSessions();
+    updateDataSourceBadge('Demo Dataset');
+  }
+  renderAll();
+}
+
+function updateDataSourceBadge(status) {
+  const el = document.getElementById('hero-datasource-label');
+  if (el) {
+    el.textContent = status + ' · AI-Powered · Read-Only · Auto-Redacting';
+  }
+}
+
+function renderAll() {
+  renderHero();
+  renderStats();
+  renderSessions(ALL_SESSIONS);
+  renderRecurring();
+  updateHeroCard();
+}
+
+/* ── Hero / Card ─────────────────────────────────────────── */
+function renderHero() {
+  const total = ALL_SESSIONS.length;
+  const unhealthy = ALL_SESSIONS.reduce((s,e) => s + (e.unhealthy_pods || 0), 0);
+  const redactions = ALL_SESSIONS.reduce((s,e) => s + (e.redaction_count || 0), 0);
+  document.getElementById('meta-total').textContent = total;
+  document.getElementById('meta-unhealthy').textContent = unhealthy;
+  document.getElementById('meta-redactions').textContent = redactions;
+}
+
+function updateHeroCard() {
+  if (!ALL_SESSIONS.length) return;
+  const latest = ALL_SESSIONS[0];
+  document.getElementById('card-last-run').textContent = relTime(latest.timestamp);
+  const u = latest.unhealthy_pods || 0;
+  const uEl = document.getElementById('card-unhealthy');
+  uEl.textContent = u === 0 ? 'None ✓' : u + ' pods';
+  uEl.className = 'hero-status-row-value ' + (u === 0 ? 'ok' : u > 3 ? 'error' : 'warn');
+
+  document.getElementById('card-last-runbook').textContent =
+    latest.runbook ? latest.runbook : '—';
+
+  const confEl = document.getElementById('card-confidence');
+  confEl.textContent = latest.confidence || '—';
+  confEl.className = 'hero-status-row-value ' + confidenceClass(latest.confidence);
+
+  const statusDot = document.getElementById('status-dot');
+  statusDot.className = 'status-dot' + (u > 3 ? ' error' : u > 0 ? ' warn' : '');
+  document.getElementById('status-text').textContent =
+    u === 0 ? 'All clear' : u + ' issue' + (u > 1 ? 's' : '') + ' detected';
+}
+
+/* ── Stats ───────────────────────────────────────────────── */
+function renderStats() {
+  const total = ALL_SESSIONS.length;
+  const unhealthy = ALL_SESSIONS.reduce((s,e) => s + (e.unhealthy_pods || 0), 0);
+  const redactions = ALL_SESSIONS.reduce((s,e) => s + (e.redaction_count || 0), 0);
+  const recurring = countRecurring();
+
+  // Animate count up
+  animateCount('stat-total', total);
+  animateCount('stat-unhealthy', unhealthy);
+  animateCount('stat-redactions', redactions);
+  animateCount('stat-recurring', Object.keys(recurring).length);
+
+  const last24 = ALL_SESSIONS.filter(s => {
+    const age = (Date.now() - new Date(s.timestamp)) / 3600000;
+    return age <= 24;
+  }).length;
+  document.getElementById('stat-total-delta').textContent = `${last24} in last 24h`;
+
+  const unhealthyLast = ALL_SESSIONS.filter(s => (s.unhealthy_pods || 0) > 0).length;
+  document.getElementById('stat-unhealthy-delta').textContent = `${unhealthyLast} runs with issues`;
+}
+
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  const duration = 900;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    el.textContent = Math.round(ease * target);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ── Sessions Table ──────────────────────────────────────── */
+function renderSessions(sessions) {
+  const tbody = document.getElementById('sessions-body');
+  const count = document.getElementById('sessions-count');
+
+  if (!sessions.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--color-ash-gray);">No sessions match your filters.</td></tr>`;
+    count.textContent = '';
+    return;
+  }
+
+  count.textContent = `Showing ${sessions.length} of ${ALL_SESSIONS.length} sessions`;
+
+  tbody.innerHTML = sessions.map((s, i) => {
+    const u = s.unhealthy_pods || 0;
+    const podsClass = u === 0 ? 'zero' : u > 3 ? 'error' : 'warn';
+    const dt = new Date(s.timestamp);
+    const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    return `
+    <tr onclick="toggleExpand('detail-${i}', this)" data-row="${i}" aria-expanded="false">
+      <td>
+        <div class="session-time">
+          <span class="date">${dateStr}</span>
+          ${timeStr} UTC
+        </div>
+      </td>
+      <td>
+        <span class="source-badge ${s.source}">${s.source === 'mcp' ? '🤖 mcp' : '⚙️ collect'}</span>
+      </td>
+      <td style="font-size:13px; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        ${escHtml(s.scope || '—')}
+      </td>
+      <td>
+        <div class="pods-cell">
+          <span class="count ${podsClass}">${u}</span>
+          ${u > 0 ? `<span style="font-size:12px;">pod${u > 1 ? 's' : ''}</span>` : ''}
+        </div>
+      </td>
+      <td>
+        ${s.runbook
+          ? `<span class="runbook-chip">${escHtml(s.runbook)}</span>`
+          : `<span class="runbook-dash">—</span>`}
+      </td>
+      <td>${confidenceBadge(s.confidence)}</td>
+      <td>
+        ${s.redacted
+          ? `<span class="badge badge-violet">🔒 ${s.redaction_count || 0}</span>`
+          : `<span class="badge badge-gray">—</span>`}
+      </td>
+      <td>
+        <button class="expand-btn" aria-label="Expand session details" tabindex="0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      </td>
+    </tr>
+    <tr class="session-detail-row" id="detail-row-${i}">
+      <td colspan="8">
+        <div class="session-detail" id="detail-${i}">
+          ${renderDetailContent(s)}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDetailContent(s) {
+  const fields = [
+    ['Session ID', s.session_id],
+    ['Timestamp', new Date(s.timestamp).toISOString()],
+    ['Source', s.source],
+    ['Scope', s.scope],
+    ['Bundle path', s.bundle_path || '—'],
+    ['Unhealthy pods', s.unhealthy_pods ?? 0],
+    ['Redaction count', s.redaction_count ?? 0],
+    ['Root cause', s.root_cause || 'Not determined'],
+  ];
+  const grid = fields.map(([k,v]) => `
+    <div class="detail-field">
+      <label>${k}</label>
+      <p>${escHtml(String(v))}</p>
+    </div>`).join('');
+
+  const json = JSON.stringify(s, null, 2)
+    .replace(/("[\w_]+")\s*:/g, '<span class="key">$1</span>:')
+    .replace(/:\s*(".*?")/g, ': <span class="str">$1</span>')
+    .replace(/:\s*(\d+\.?\d*)/g, ': <span class="num">$1</span>')
+    .replace(/:\s*(true|false|null)/g, ': <span class="kw">$1</span>');
+
+  return `
+    <div class="session-detail-grid">${grid}</div>
+    ${s.root_cause ? `<div style="margin-bottom:var(--s-12);padding:var(--s-12) var(--s-16);background:var(--surface-tinted);border-radius:10px;border-left:3px solid var(--color-atlassian-blue);">
+      <div style="font-size:11px;font-weight:500;color:var(--color-muted-indigo);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">AI Root Cause</div>
+      <div style="font-size:14px;font-weight:500;color:var(--color-midnight-navy);">${escHtml(s.root_cause)}</div>
+    </div>` : ''}
+    <div class="detail-json"><code>${json}</code></div>`;
+}
+
+function toggleExpand(detailId, rowEl) {
+  const detail = document.getElementById(detailId);
+  if (!detail) return;
+
+  const isOpen = detail.classList.contains('visible');
+
+  // Close any open row
+  if (ACTIVE_EXPANDED && ACTIVE_EXPANDED !== detailId) {
+    const prev = document.getElementById(ACTIVE_EXPANDED);
+    if (prev) prev.classList.remove('visible');
+    // Reset previous row style
+    document.querySelectorAll('tr.expanded').forEach(r => r.classList.remove('expanded'));
+    document.querySelectorAll('tr[aria-expanded="true"]').forEach(r => r.setAttribute('aria-expanded','false'));
+  }
+
+  if (isOpen) {
+    detail.classList.remove('visible');
+    rowEl.classList.remove('expanded');
+    rowEl.setAttribute('aria-expanded', 'false');
+    ACTIVE_EXPANDED = null;
+  } else {
+    detail.classList.add('visible');
+    rowEl.classList.add('expanded');
+    rowEl.setAttribute('aria-expanded', 'true');
+    ACTIVE_EXPANDED = detailId;
+    // Chevron flip
+    const btn = rowEl.querySelector('.expand-btn svg polyline');
+    if (btn) btn.setAttribute('points', '6 15 12 9 18 15');
+  }
+}
+
+/* ── Filters ─────────────────────────────────────────────── */
+function filterSessions() {
+  const search = document.getElementById('filter-search').value.toLowerCase();
+  const source = document.getElementById('filter-source').value;
+  const confidence = document.getElementById('filter-confidence').value;
+  const health = document.getElementById('filter-health').value;
+
+  const filtered = ALL_SESSIONS.filter(s => {
+    const text = [s.runbook, s.root_cause, s.scope, s.source].join(' ').toLowerCase();
+    if (search && !text.includes(search)) return false;
+    if (source && s.source !== source) return false;
+    if (confidence && s.confidence !== confidence) return false;
+    if (health === 'unhealthy' && !(s.unhealthy_pods > 0)) return false;
+    if (health === 'healthy' && s.unhealthy_pods > 0) return false;
+    return true;
+  });
+
+  ACTIVE_EXPANDED = null;
+  renderSessions(filtered);
+}
+
+/* ── Recurring Issues ────────────────────────────────────── */
+function countRecurring() {
+  const counts = {};
+  ALL_SESSIONS.forEach(s => {
+    if (s.runbook) counts[s.runbook] = (counts[s.runbook] || 0) + 1;
+  });
+  return counts;
+}
+
+function renderRecurring() {
+  const counts = countRecurring();
+  const recurring = Object.entries(counts)
+    .filter(([, c]) => c >= 2)
+    .sort(([, a], [, b]) => b - a);
+
+  const list = document.getElementById('recurring-list');
+
+  if (!recurring.length) {
+    list.innerHTML = `<li style="color:var(--color-ash-gray);font-size:14px;padding:var(--s-20);">
+      ✅ No recurring patterns yet — cluster looks healthy.
+    </li>`;
+    return;
+  }
+
+  const icons = {
+    'pod-crashloop':     '🔄',
+    'image-pull-backoff':'🖼️',
+    'pvc-pending':       '💾',
+    'node-not-ready':    '🖥️',
+    'hpa-not-scaling':   '📈',
+  };
+
+  list.innerHTML = recurring.map(([runbook, count]) => `
+    <li class="recurring-item">
+      <div class="recurring-item-name">
+        <span class="icon">${icons[runbook] || '⚠️'}</span>
+        ${escHtml(runbook)}
+      </div>
+      <div>
+        <div class="recurring-count">${count}</div>
+        <div class="recurring-count-label">occurrence${count > 1 ? 's' : ''}</div>
+      </div>
+    </li>
+  `).join('');
+}
+
+/* ── Evidence Bundle Viewer ──────────────────────────────── */
+function renderEvidenceTree() {
+  const tree = document.getElementById('evidence-tree');
+  tree.innerHTML = EVIDENCE_FILES.map((f, i) => `
+    <li class="evidence-tree-item${i === 0 ? ' active' : ''}"
+        onclick="loadEvidenceFile(${i}, this)"
+        role="button"
+        tabindex="0"
+        aria-label="View ${f.name}"
+        onkeydown="if(event.key==='Enter') loadEvidenceFile(${i}, this)">
+      <span class="file-icon">${f.icon}</span>
+      <span>${f.name}</span>
+      <span class="file-size">${f.size}</span>
+    </li>
+  `).join('');
+
+  // Load first file by default
+  loadEvidenceFile(0, tree.querySelector('.evidence-tree-item'));
+
+  // Set bundle timestamp
+  const latest = ALL_SESSIONS && ALL_SESSIONS[0];
+  if (latest) {
+    document.getElementById('bundle-ts').textContent =
+      'Bundle · ' + relTime(latest.timestamp);
+  }
+}
+
+function loadEvidenceFile(index, itemEl) {
+  // Update active tree item
+  document.querySelectorAll('.evidence-tree-item').forEach(el => el.classList.remove('active'));
+  if (itemEl) itemEl.classList.add('active');
+
+  const file = EVIDENCE_FILES[index];
+  document.getElementById('viewer-filename').textContent = file.name;
+  document.getElementById('viewer-size').textContent = file.size;
+
+  let content = escHtml(file.content);
+  // Syntax highlight JSONL
+  if (file.name.endsWith('.jsonl') || file.name.endsWith('.json')) {
+    content = content
+      .replace(/(&#34;[\w_]+&#34;)\s*:/g, '<span class="key">$1</span>:')
+      .replace(/:\s*(&#34;.*?&#34;)/g, ': <span class="str">$1</span>')
+      .replace(/:\s*(\d+)/g, ': <span class="num">$1</span>');
+  }
+  document.getElementById('viewer-content').innerHTML = content;
+  ACTIVE_EVIDENCE_FILE = file;
+}
+
+function copyBundle() {
+  if (!ACTIVE_EVIDENCE_FILE) return;
+  navigator.clipboard.writeText(ACTIVE_EVIDENCE_FILE.content)
+    .then(() => showToast('📋 Copied to clipboard'))
+    .catch(() => showToast('❌ Copy failed — try selecting text manually'));
+}
+
+/* ── Helpers ─────────────────────────────────────────────── */
+function confidenceBadge(c) {
+  if (!c) return '<span class="badge badge-gray">—</span>';
+  const map = { high: 'badge-green', medium: 'badge-yellow', low: 'badge-red' };
+  return `<span class="badge ${map[c] || 'badge-gray'}">${c}</span>`;
+}
+
+function confidenceClass(c) {
+  if (!c) return '';
+  return { high: 'ok', medium: 'warn', low: 'error' }[c] || '';
+}
+
+function relTime(ts) {
+  const diff = (Date.now() - new Date(ts)) / 1000;
+  if (diff < 60)   return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&#34;');
+}
+
+function showToast(message) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span class="toast-icon">🔔</span><span>${escHtml(message)}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+function handleRunNow() {
+  const btn = document.getElementById('btn-run-now');
+  btn.textContent = '⏳ Running…';
+  btn.disabled = true;
+  showToast('🚀 Collection job triggered — results in ~2 minutes');
+  setTimeout(() => {
+    btn.textContent = '▶ Run Now';
+    btn.disabled = false;
+    showToast('✅ Collection complete — refresh to see new session');
+  }, 3000);
+}
+
+/* ── Nav highlight on scroll ─────────────────────────────── */
+function setupNavHighlight() {
+  const sections = ['dashboard', 'sessions', 'recurring', 'evidence'];
+  const navLinks = {
+    dashboard: document.getElementById('nav-dashboard'),
+    sessions:  document.getElementById('nav-sessions'),
+    recurring: document.getElementById('nav-recurring'),
+    evidence:  document.getElementById('nav-evidence'),
+  };
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        Object.values(navLinks).forEach(a => a && a.classList.remove('active'));
+        const link = navLinks[e.target.id];
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-50% 0px -50% 0px' });
+
+  sections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
+}
+
+/* ── Fallback data (if fetch fails on file://) ───────────── */
+function getFallbackSessions() {
+  return [
+    { session_id:"s001", timestamp: new Date(Date.now()-3600000).toISOString(),  source:"collect", scope:"all-namespaces",      unhealthy_pods:3, redacted:true,  redaction_count:2, bundle_path:"/evidence/bundle/latest", runbook:"pod-crashloop",      confidence:"high",   root_cause:"OOMKilled — payment-service exceeds 512Mi memory limit"              },
+    { session_id:"s002", timestamp: new Date(Date.now()-7200000).toISOString(),  source:"collect", scope:"all-namespaces",      unhealthy_pods:1, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev1",   runbook:"image-pull-backoff", confidence:"high",   root_cause:"ImagePullBackOff — registry.internal/api:sha-abc123 not found"       },
+    { session_id:"s003", timestamp: new Date(Date.now()-10800000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:0, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev2",   runbook:null,                confidence:null,     root_cause:null                                                                  },
+    { session_id:"s004", timestamp: new Date(Date.now()-14400000).toISOString(), source:"mcp",     scope:"namespace:production",unhealthy_pods:5, redacted:true,  redaction_count:7, bundle_path:"/evidence/bundle/prev3",   runbook:"pod-crashloop",      confidence:"medium", root_cause:"CrashLoopBackOff — missing DATABASE_URL env var in auth-service"     },
+    { session_id:"s005", timestamp: new Date(Date.now()-18000000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:2, redacted:true,  redaction_count:3, bundle_path:"/evidence/bundle/prev4",   runbook:"pvc-pending",        confidence:"high",   root_cause:"PVC stuck Pending — no StorageClass matches annotation fast-ssd"     },
+    { session_id:"s006", timestamp: new Date(Date.now()-21600000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:0, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev5",   runbook:null,                confidence:null,     root_cause:null                                                                  },
+    { session_id:"s007", timestamp: new Date(Date.now()-25200000).toISOString(), source:"mcp",     scope:"namespace:production",unhealthy_pods:4, redacted:true,  redaction_count:5, bundle_path:"/evidence/bundle/prev6",   runbook:"pod-crashloop",      confidence:"high",   root_cause:"OOMKilled — payment-service recurring memory pressure"               },
+    { session_id:"s008", timestamp: new Date(Date.now()-28800000).toISOString(), source:"collect", scope:"namespace:staging",   unhealthy_pods:2, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev7",   runbook:"image-pull-backoff", confidence:"high",   root_cause:"ErrImagePull — deprecated registry endpoint for legacy worker image"  },
+    { session_id:"s009", timestamp: new Date(Date.now()-32400000).toISOString(), source:"collect", scope:"all-namespaces",      unhealthy_pods:1, redacted:false, redaction_count:0, bundle_path:"/evidence/bundle/prev8",   runbook:"node-not-ready",     confidence:"low",    root_cause:"Node worker-3 NotReady — kubelet unresponsive, disk pressure"        },
+    { session_id:"s010", timestamp: new Date(Date.now()-36000000).toISOString(), source:"mcp",     scope:"all-namespaces",      unhealthy_pods:3, redacted:true,  redaction_count:4, bundle_path:"/evidence/bundle/prev9",   runbook:"hpa-not-scaling",    confidence:"medium", root_cause:"HPA unable to scale — metrics-server in CrashLoopBackOff"           },
+  ];
+}
+</script>
+
+</body>
+</html>

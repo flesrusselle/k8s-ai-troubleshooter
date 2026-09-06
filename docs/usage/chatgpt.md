@@ -42,10 +42,10 @@ This is the step people skip.
 
 ```bash
 # Collect everything, redacted, in one command
-python3 scripts/collect.py -n prod -o evidence-bundle
+python3 scripts/collect.py --namespace prod --output evidence-bundle
 
 # Or filter a single command's output
-kubectl describe pod api-7d9f -n prod | python3 scripts/redact.py
+kubectl describe pod api-7d9f --namespace prod | python3 scripts/redact.py
 ```
 
 `kubectl describe pod` prints **every environment variable value**. If your app
@@ -77,12 +77,12 @@ Kubernetes issue. Follow the k8s-ai-troubleshooter method: start with triage
 scope, route the signal, then give me root cause with a confidence level.
 Do not give me a fix to run until you have stated the blast radius.
 
-$ kubectl get pods -n prod
+$ kubectl get pods --namespace prod
 NAME                        READY   STATUS             RESTARTS      AGE
 payments-api-7d9f4b-x2kql   0/1     CrashLoopBackOff   9 (30s ago)   14m
 payments-api-7d9f4b-mm81z   1/1     Running            0             3d
 
-$ kubectl describe pod payments-api-7d9f4b-x2kql -n prod
+$ kubectl describe pod payments-api-7d9f4b-x2kql --namespace prod
     Last State:     Terminated
       Reason:       Error
       Exit Code:    1
@@ -90,7 +90,7 @@ $ kubectl describe pod payments-api-7d9f4b-x2kql -n prod
       DATABASE_HOST:  [REDACTED:key-value:a91f2c30]
       LOG_LEVEL:      info
 
-$ kubectl logs payments-api-7d9f4b-x2kql -n prod --previous
+$ kubectl logs payments-api-7d9f4b-x2kql --namespace prod --previous
 FATAL could not connect to database:
   dial tcp: lookup postgres-primary.prod.svc.cluster.local: no such host
 ```
@@ -117,8 +117,8 @@ FATAL could not connect to database:
 >
 > ## What Would Raise This to High
 > ```bash
-> kubectl get svc -n prod | grep postgres
-> kubectl get pods -n prod -o custom-columns='POD:.metadata.name,IMAGE:.spec.containers[0].image'
+> kubectl get svc --namespace prod | grep postgres
+> kubectl get pods --namespace prod -o custom-columns='POD:.metadata.name,IMAGE:.spec.containers[0].image'
 > ```
 >
 > ## Recommended Remediation

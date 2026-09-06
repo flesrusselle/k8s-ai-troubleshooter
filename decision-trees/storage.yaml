@@ -7,7 +7,7 @@ trigger:
 steps:
   - id: "step-1-inspect-pvc"
     action: "read"
-    command: "kubectl get pvc -n <namespace>"
+    command: "kubectl get pvc --namespace <namespace>"
     purpose: "Check status of PVC (Bound, Pending, Lost)"
     outcomes:
       - condition: "PVC status == 'Pending'"
@@ -17,7 +17,7 @@ steps:
 
   - id: "step-2-describe-pvc"
     action: "inspect"
-    command: "kubectl describe pvc <pvc-name> -n <namespace>"
+    command: "kubectl describe pvc <pvc-name> --namespace <namespace>"
     purpose: "Inspect storage class, access modes, capacity request, and PVC events"
     outcomes:
       - condition: "Events show 'storageclass.storage.k8s.io not found'"

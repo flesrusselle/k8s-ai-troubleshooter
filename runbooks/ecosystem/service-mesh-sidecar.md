@@ -27,23 +27,23 @@ confusion here.
 
 ```bash
 # 1. Container count and names — is the sidecar even present?
-kubectl get pod <pod> -n <namespace> \
+kubectl get pod <pod> --namespace <namespace> \
   -o jsonpath='{range .spec.containers[*]}{.name}{"\n"}{end}'
 
 # 2. Is the namespace actually enrolled?
 kubectl get namespace <namespace> --show-labels
 
 # 3. Per-pod override annotations
-kubectl get pod <pod> -n <namespace> -o jsonpath='{.metadata.annotations}{"\n"}'
+kubectl get pod <pod> --namespace <namespace> -o jsonpath='{.metadata.annotations}{"\n"}'
 
 # 4. Is the injector webhook itself healthy?
-kubectl get pods -n istio-system -l app=istiod        # Istio
-kubectl get pods -n linkerd -l linkerd.io/control-plane-component=proxy-injector  # Linkerd
+kubectl get pods --namespace istio-system -l app=istiod        # Istio
+kubectl get pods --namespace linkerd -l linkerd.io/control-plane-component=proxy-injector  # Linkerd
 kubectl get mutatingwebhookconfigurations | grep -Ei 'istio|linkerd'
 
 # 5. The sidecar's own logs
-kubectl logs <pod> -n <namespace> -c istio-proxy --tail=100     # Istio
-kubectl logs <pod> -n <namespace> -c linkerd-proxy --tail=100   # Linkerd
+kubectl logs <pod> --namespace <namespace> -c istio-proxy --tail=100     # Istio
+kubectl logs <pod> --namespace <namespace> -c linkerd-proxy --tail=100   # Linkerd
 ```
 
 ## Detailed Investigation
@@ -128,7 +128,7 @@ container; the flow above otherwise.
 Confirm the "created before injection was enabled" hypothesis directly:
 
 ```bash
-kubectl get pod <pod> -n <namespace> -o jsonpath='{.metadata.creationTimestamp}{"\n"}'
+kubectl get pod <pod> --namespace <namespace> -o jsonpath='{.metadata.creationTimestamp}{"\n"}'
 kubectl get namespace <namespace> -o jsonpath='{.metadata.labels}{"\n"}'
 ```
 
@@ -150,13 +150,13 @@ Restoring the injector webhook re-enables mutation for every future pod create
 in every enrolled namespace, not only the one under investigation.
 
 ## Human Approval Required
-- `kubectl rollout restart deployment/<name> -n <namespace>`
+- `kubectl rollout restart deployment/<name> --namespace <namespace>`
 - `kubectl label namespace <namespace> istio-injection=enabled` (or the Linkerd equivalent)
 - `kubectl apply -f <injector-webhook-fix>.yaml`
 
 ## Verification
 ```bash
-kubectl get pod <pod> -n <namespace> \
+kubectl get pod <pod> --namespace <namespace> \
   -o jsonpath='{range .spec.containers[*]}{.name}{"\n"}{end}'
 ```
 Verified when the sidecar container appears and reports `Running` with

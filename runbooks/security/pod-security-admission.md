@@ -26,7 +26,7 @@ healthy. The error is on the ReplicaSet.
 
 ```bash
 # 1. The real error lives here, not on the Deployment
-kubectl describe replicaset -n <namespace> | grep -A5 FailedCreate
+kubectl describe replicaset --namespace <namespace> | grep -A5 FailedCreate
 
 # 2. What level is the namespace enforcing?
 kubectl get namespace <namespace> -o jsonpath='{.metadata.labels}'
@@ -36,7 +36,7 @@ kubectl label --dry-run=server --overwrite ns <namespace> \
   pod-security.kubernetes.io/enforce=restricted
 
 # 4. What the workload actually asks for
-kubectl get deployment <name> -n <namespace> \
+kubectl get deployment <name> --namespace <namespace> \
   -o jsonpath='{.spec.template.spec.securityContext}{"\n"}{.spec.template.spec.containers[*].securityContext}'
 ```
 
@@ -126,7 +126,7 @@ immediately.
 ```bash
 kubectl label --dry-run=server --overwrite ns <namespace> \
   pod-security.kubernetes.io/enforce=<level>
-kubectl get pods -n <namespace>
+kubectl get pods --namespace <namespace>
 ```
 Verified when the dry-run reports no violations and the previously rejected
 workload creates pods. Run the dry-run before enforcing, not after — it lists

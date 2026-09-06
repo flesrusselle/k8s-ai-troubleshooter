@@ -26,21 +26,21 @@ specific layer wins. Read all three before concluding which one is at fault.
 
 ```bash
 # 1. Mesh-wide default
-kubectl get peerauthentication default -n istio-system -o yaml 2>/dev/null
+kubectl get peerauthentication default --namespace istio-system -o yaml 2>/dev/null
 
 # 2. Namespace-level override
-kubectl get peerauthentication -n <namespace> -o yaml
+kubectl get peerauthentication --namespace <namespace> -o yaml
 
 # 3. Workload-specific override — this one wins if it exists
-kubectl get peerauthentication -n <namespace> \
+kubectl get peerauthentication --namespace <namespace> \
   -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.selector}{"\t"}{.spec.mtls.mode}{"\n"}{end}'
 
 # 4. Does a DestinationRule override the client side to send plaintext?
-kubectl get destinationrule -n <namespace> \
+kubectl get destinationrule --namespace <namespace> \
   -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.trafficPolicy.tls.mode}{"\n"}{end}'
 
 # 5. The Envoy access log on the receiving sidecar names the flag
-kubectl logs <pod> -n <namespace> -c istio-proxy --tail=200
+kubectl logs <pod> --namespace <namespace> -c istio-proxy --tail=200
 ```
 
 ## Detailed Investigation
@@ -112,7 +112,7 @@ Confirm a policy-mismatch hypothesis by testing from a definitely-meshed
 source against the same destination:
 
 ```bash
-kubectl get pod <caller> -n <namespace> \
+kubectl get pod <caller> --namespace <namespace> \
   -o jsonpath='{range .spec.containers[*]}{.name}{"\n"}{end}'
 ```
 
@@ -143,7 +143,7 @@ connection during rollover if done incorrectly.
 
 ## Verification
 ```bash
-kubectl logs <pod> -n <namespace> -c istio-proxy --tail=50
+kubectl logs <pod> --namespace <namespace> -c istio-proxy --tail=50
 ```
 Verified when the specific caller/callee pair that was failing now succeeds,
 **and** a deliberately-unmeshed test caller is still refused if the

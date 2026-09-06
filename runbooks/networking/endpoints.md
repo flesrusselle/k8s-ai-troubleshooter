@@ -17,13 +17,13 @@ Triggered when a Service is reachable but returns `503 Service Unavailable`, `Co
 
 ```bash
 # 1. Fetch Service selector configuration
-kubectl get svc <service-name> -n <namespace> -o jsonpath='{.spec.selector}'
+kubectl get svc <service-name> --namespace <namespace> -o jsonpath='{.spec.selector}'
 
 # 2. Compare with actual backing Pod labels
-kubectl get pods -n <namespace> --show-labels
+kubectl get pods --namespace <namespace> --show-labels
 
 # 3. Check Endpoint / EndpointSlice status
-kubectl get endpoints,endpointslices -n <namespace> -l kubernetes.io/service-name=<service-name>
+kubectl get endpoints,endpointslices --namespace <namespace> -l kubernetes.io/service-name=<service-name>
 ```
 
 ## Detailed Investigation
@@ -69,11 +69,11 @@ and can silently move it to the wrong workload. Label changes may also affect
 NetworkPolicies and PodDisruptionBudgets that select on the same labels.
 
 ## Human Approval Required
-- `kubectl patch svc <service-name> -n <namespace> -p '...'`
+- `kubectl patch svc <service-name> --namespace <namespace> -p '...'`
 
 ## Verification
 ```bash
-kubectl get endpoints <service> -n <namespace>
+kubectl get endpoints <service> --namespace <namespace>
 ```
 Verified when the endpoint list contains every ready pod and no others, and a
 request through the Service reaches the intended workload. Non-empty endpoints

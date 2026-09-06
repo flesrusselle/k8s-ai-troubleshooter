@@ -21,16 +21,16 @@ crashes — and you need to decide between rolling back and fixing forward.
 
 ```bash
 # 1. Where is the rollout now?
-kubectl rollout status deployment/<name> -n <namespace> --timeout=30s
+kubectl rollout status deployment/<name> --namespace <namespace> --timeout=30s
 
 # 2. Revision history
-kubectl rollout history deployment/<name> -n <namespace>
+kubectl rollout history deployment/<name> --namespace <namespace>
 
 # 3. What the previous revision looked like
-kubectl rollout history deployment/<name> -n <namespace> --revision=<n>
+kubectl rollout history deployment/<name> --namespace <namespace> --revision=<n>
 
 # 4. Both generations of pods, side by side
-kubectl get pods -n <namespace> -l app=<label> \
+kubectl get pods --namespace <namespace> -l app=<label> \
   -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image,STATUS:.status.phase,AGE:.metadata.creationTimestamp'
 ```
 
@@ -99,7 +99,7 @@ Are new pods failing, or serving errors?
 Confirm the release is implicated by comparing pod health across revisions:
 
 ```bash
-kubectl get pods -n <namespace> -l app=<label> \
+kubectl get pods --namespace <namespace> -l app=<label> \
   -o custom-columns='POD:.metadata.name,REVISION:.metadata.labels.pod-template-hash,READY:.status.conditions[?(@.type=="Ready")].status'
 ```
 
@@ -119,15 +119,15 @@ messages, and mutated external state persist. For a release that migrated a
 schema, rolling back the code can be worse than the bug.
 
 ## Human Approval Required
-- `kubectl rollout undo deployment/<name> -n <namespace>` — replaces every running pod
-- `kubectl rollout undo deployment/<name> --to-revision=<n> -n <namespace>`
-- `kubectl rollout pause deployment/<name> -n <namespace>` — freezes a partial rollout, leaving both versions serving
-- `kubectl rollout restart deployment/<name> -n <namespace>`
+- `kubectl rollout undo deployment/<name> --namespace <namespace>` — replaces every running pod
+- `kubectl rollout undo deployment/<name> --to-revision=<n> --namespace <namespace>`
+- `kubectl rollout pause deployment/<name> --namespace <namespace>` — freezes a partial rollout, leaving both versions serving
+- `kubectl rollout restart deployment/<name> --namespace <namespace>`
 
 ## Verification
 ```bash
-kubectl rollout status deployment/<name> -n <namespace>
-kubectl get pods -n <namespace> -l app=<label> \
+kubectl rollout status deployment/<name> --namespace <namespace>
+kubectl get pods --namespace <namespace> -l app=<label> \
   -o custom-columns='POD:.metadata.name,REVISION:.metadata.labels.pod-template-hash,READY:.status.conditions[?(@.type=="Ready")].status'
 ```
 Verified when every pod carries the target revision's `pod-template-hash`, all

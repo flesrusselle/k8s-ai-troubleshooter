@@ -29,4 +29,4 @@ killer, a failed liveness probe, or an expired grace period. Check
 pod — quota, Pod Security, a webhook — the Deployment is accepted and the
 ReplicaSet is refused. `kubectl get pods` shows nothing and
 `describe deployment` looks healthy. Look at
-`kubectl describe replicaset -n <namespace>`.
+`kubectl describe replicaset --namespace <namespace>`.

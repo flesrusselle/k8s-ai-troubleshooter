@@ -24,16 +24,16 @@ Deployment — so `kubectl get pods` shows nothing and the Deployment looks fine
 
 ```bash
 # 1. The error is here
-kubectl describe replicaset -n <namespace> | grep -A5 FailedCreate
+kubectl describe replicaset --namespace <namespace> | grep -A5 FailedCreate
 
 # 2. Quota consumption — USED vs HARD is the whole story
-kubectl describe resourcequota -n <namespace>
+kubectl describe resourcequota --namespace <namespace>
 
 # 3. Defaults and bounds imposed on every pod
-kubectl describe limitrange -n <namespace>
+kubectl describe limitrange --namespace <namespace>
 
 # 4. What is consuming the quota
-kubectl get pods -n <namespace> \
+kubectl get pods --namespace <namespace> \
   -o custom-columns='NAME:.metadata.name,CPU_REQ:.spec.containers[*].resources.requests.cpu,MEM_REQ:.spec.containers[*].resources.requests.memory'
 ```
 
@@ -96,7 +96,7 @@ Self-contained; branch on quota exhaustion versus LimitRange violation.
 Confirm remaining headroom precisely:
 
 ```bash
-kubectl get resourcequota -n <namespace> \
+kubectl get resourcequota --namespace <namespace> \
   -o custom-columns='NAME:.metadata.name,USED:.status.used,HARD:.status.hard'
 ```
 
@@ -117,13 +117,13 @@ created afterwards.
 
 ## Human Approval Required
 - `kubectl apply -f <manifest-with-resources>.yaml`
-- `kubectl patch resourcequota <name> -n <ns> --type=merge -p '{"spec":{"hard":{...}}}'`
-- `kubectl delete deployment <name> -n <namespace>` to reclaim — **DESTRUCTIVE**
+- `kubectl patch resourcequota <name> --namespace <ns> --type=merge -p '{"spec":{"hard":{...}}}'`
+- `kubectl delete deployment <name> --namespace <namespace>` to reclaim — **DESTRUCTIVE**
 
 ## Verification
 ```bash
-kubectl describe resourcequota -n <namespace>
-kubectl get deployment <name> -n <namespace>
+kubectl describe resourcequota --namespace <namespace>
+kubectl get deployment <name> --namespace <namespace>
 ```
 Verified when `USED` sits below `HARD` with headroom for a rollout's `maxSurge`,
 and the previously rejected workload reaches its desired replica count. Fitting

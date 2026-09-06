@@ -31,6 +31,7 @@ of starting from zero every time.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -91,6 +92,8 @@ def get_runbook(runbook_id: str) -> dict:
 
 def get_decision_tree(tree_id: str) -> dict:
     """Return a decision tree's raw YAML by id (its filename without .yaml)."""
+    if not re.fullmatch(r"[a-z0-9-]+", tree_id):
+        raise ValueError(f"invalid decision tree id {tree_id!r}")
     path = REPO_ROOT / "decision-trees" / f"{tree_id}.yaml"
     if not path.exists():
         known = ", ".join(sorted(p.stem for p in (REPO_ROOT / "decision-trees").glob("*.yaml")))

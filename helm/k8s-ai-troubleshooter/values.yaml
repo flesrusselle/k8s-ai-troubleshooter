@@ -1,0 +1,122 @@
+image:
+  repository: ghcr.io/example/k8s-ai-troubleshooter
+  tag: "0.2.0"
+  # Digest takes precedence over tag when set.
+  # Set in production: sha256:<digest>
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  name: ""
+
+rbac:
+  create: true
+  # Set to true to allow the agent to read Secret values.
+  # Disabled by default to follow least-privilege principle.
+  allowSecretRead: false
+
+podAnnotations: {}
+# Example:
+#   podAnnotations:
+#     prometheus.io/scrape: "false"
+#     cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+
+cronJob:
+  enabled: false
+  # Standard cron syntax. Default: every hour.
+  schedule: "0 * * * *"
+  # Forbid prevents overlapping runs if a job takes longer than its interval.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  backoffLimit: 1
+  restartPolicy: OnFailure
+  # Maximum seconds a single job run may take before Kubernetes kills it.
+  activeDeadlineSeconds: 300
+  # Seconds after job completion before the Job object is automatically deleted.
+  ttlSecondsAfterFinished: 3600
+
+collector:
+  allNamespaces: true
+  namespace: ""
+  includePods: true
+  includeOptional: false
+  # Hard timeout passed to the collector script (must be < activeDeadlineSeconds).
+  timeoutSeconds: 240
+
+persistence:
+  enabled: false
+  existingClaim: ""
+  size: 1Gi
+  # Leave empty to use the cluster's default StorageClass.
+  storageClassName: ""
+  # Use ReadWriteMany if multiple nodes may schedule the job simultaneously.
+  accessMode: ReadWriteOnce
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ── UI Dashboard ─────────────────────────────────────────────
+ui:
+  # Set to true to deploy the nginx-based dashboard alongside the CronJob.
+  enabled: false
+  # nginx:1.27-alpine — non-root, read-only rootfs compatible
+  image: nginx:1.27-alpine
+  replicaCount: 1
+  service:
+    # ClusterIP for cluster-internal access; set LoadBalancer or NodePort as needed.
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: false
+    # ingressClassName: nginx
+    className: ""
+    # host: k8s-ai-troubleshooter.example.com
+    host: ""
+    annotations: {}
+    # Example with cert-manager:
+    #   cert-manager.io/cluster-issuer: letsencrypt-prod
+    tls: []
+    # - secretName: k8s-ai-troubleshooter-tls
+    #   hosts:
+    #     - k8s-ai-troubleshooter.example.com
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+

@@ -7,7 +7,7 @@ trigger:
 steps:
   - id: "step-1-inspect-status"
     action: "read"
-    command: "kubectl get pod <pod-name> -n <namespace> -o json"
+    command: "kubectl get pod <pod-name> --namespace <namespace> -o json"
     purpose: "Inspect pod status phase and container statuses"
     outcomes:
       - condition: "status.containerStatuses[*].state.waiting.reason == 'CrashLoopBackOff'"
@@ -23,7 +23,7 @@ steps:
 
   - id: "step-2-crashloop-logs"
     action: "inspect"
-    command: "kubectl logs <pod-name> -n <namespace> --previous --all-containers"
+    command: "kubectl logs <pod-name> --namespace <namespace> --previous --all-containers"
     purpose: "Fetch previous container log output prior to crash"
     outcomes:
       - condition: "Logs indicate exit code 1 or application exception"
@@ -33,7 +33,7 @@ steps:
 
   - id: "step-3-oomkilled-limits"
     action: "inspect"
-    command: "kubectl top pod <pod-name> -n <namespace> --containers"
+    command: "kubectl top pod <pod-name> --namespace <namespace> --containers"
     purpose: "Check memory limits vs actual consumption"
     outcomes:
       - condition: "Container memory reached configured limit"
@@ -43,7 +43,7 @@ steps:
 
   - id: "step-4-imagepull-events"
     action: "inspect"
-    command: "kubectl describe pod <pod-name> -n <namespace>"
+    command: "kubectl describe pod <pod-name> --namespace <namespace>"
     purpose: "Inspect image name, registry authentication, imagePullSecrets"
     outcomes:
       - condition: "Events show HTTP 401/403 or ImageNotFound"
@@ -53,7 +53,7 @@ steps:
 
   - id: "step-5-pending-scheduling"
     action: "inspect"
-    command: "kubectl describe pod <pod-name> -n <namespace>"
+    command: "kubectl describe pod <pod-name> --namespace <namespace>"
     purpose: "Check node scheduling constraints, PVC binding status, taints/tolerations"
     outcomes:
       - condition: "Events state '0/X nodes available: insufficient memory/cpu'"
@@ -73,7 +73,7 @@ steps:
 
   - id: "step-confirm-root-cause"
     action: "confirm"
-    command: "kubectl get events -n <namespace> --field-selector involvedObject.name=<pod-name>"
+    command: "kubectl get events --namespace <namespace> --field-selector involvedObject.name=<pod-name>"
     purpose: "Correlate container logs, termination reason, and events into confirmed diagnosis"
     next: "step-remediation-approval"
 

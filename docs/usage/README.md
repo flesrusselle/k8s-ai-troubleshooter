@@ -106,13 +106,13 @@ Whatever platform you use, cluster output contains credentials. Before pasting
 anything into a hosted assistant:
 
 ```bash
-kubectl describe pod api-7d9f -n prod | python3 ../scripts/redact.py
+kubectl describe pod api-7d9f --namespace prod | python3 ../scripts/redact.py
 ```
 
 Or collect everything at once:
 
 ```bash
-python3 scripts/collect.py -n prod -o evidence-bundle
+python3 scripts/collect.py --namespace prod --output evidence-bundle
 ```
 
 See [evidence-bundles.md](../evidence-bundles.md). This matters most in Mode 2,

@@ -23,14 +23,14 @@ Client -> Ingress -> Ingress Controller Pod -> Service -> Endpoints -> Applicati
 
 ```bash
 # 1. Inspect Ingress resource rules & backend target service
-kubectl get ingress -n <namespace> -o wide
+kubectl get ingress --namespace <namespace> -o wide
 
 # 2. Check Ingress Controller pod health & logs
-kubectl get pods -n ingress-nginx (or namespace of controller)
-kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=100
+kubectl get pods --namespace ingress-nginx (or namespace of controller)
+kubectl logs --namespace ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=100
 
 # 3. Verify backend Service and Endpoints
-kubectl get svc,endpoints -n <namespace>
+kubectl get svc,endpoints --namespace <namespace>
 ```
 
 ## Detailed Investigation
@@ -73,12 +73,12 @@ affect every Ingress in the cluster. A bad annotation can take down unrelated
 applications sharing the controller.
 
 ## Human Approval Required
-- `kubectl annotate ingress <ingress-name> -n <namespace> ...`
+- `kubectl annotate ingress <ingress-name> --namespace <namespace> ...`
 - `helm upgrade <ingress-controller-release>`
 
 ## Verification
 ```bash
-kubectl describe ingress <ingress> -n <namespace>
+kubectl describe ingress <ingress> --namespace <namespace>
 curl -sS -o /dev/null -w '%{http_code}\n' https://<host>/<path>
 ```
 Verified when the expected status code is returned end-to-end from outside the

@@ -18,10 +18,10 @@ Triggered when events report `Unhealthy` probes or pods fail readiness checks.
 
 ```bash
 # 1. Fetch probe failure events
-kubectl describe pod <pod-name> -n <namespace> | grep -E "Readiness|Liveness|Startup|Unhealthy" -A 2
+kubectl describe pod <pod-name> --namespace <namespace> | grep -E "Readiness|Liveness|Startup|Unhealthy" -A 2
 
 # 2. Inspect configured probe settings in spec
-kubectl get pod <pod-name> -n <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{"\nReadiness="}{.readinessProbe}{"\nLiveness="}{.livenessProbe}{"\nStartup="}{.startupProbe}{"\n"}{end}'
+kubectl get pod <pod-name> --namespace <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{"\nReadiness="}{.readinessProbe}{"\nLiveness="}{.livenessProbe}{"\nStartup="}{.startupProbe}{"\n"}{end}'
 ```
 
 ## Detailed Investigation
@@ -65,8 +65,8 @@ Tightening one risks killing healthy pods under load. Both affect every replica.
 
 ## Verification
 ```bash
-kubectl describe pod <pod-name> -n <namespace> | grep -A3 -E 'Liveness|Readiness'
-kubectl get events -n <namespace> --field-selector reason=Unhealthy
+kubectl describe pod <pod-name> --namespace <namespace> | grep -A3 -E 'Liveness|Readiness'
+kubectl get events --namespace <namespace> --field-selector reason=Unhealthy
 ```
 Verified when no new `Unhealthy` events appear across a full traffic cycle
 including peak. A probe that passes at low traffic and fails at peak has not

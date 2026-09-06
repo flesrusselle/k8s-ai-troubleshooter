@@ -1,0 +1,67 @@
+name: Container Security
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - helm/**
+      - requirements.txt
+      - scripts/**
+      - k8s_ai_core/**
+      - .github/workflows/container-security.yml
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - helm/**
+      - requirements.txt
+      - scripts/**
+      - k8s_ai_core/**
+      - .github/workflows/container-security.yml
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build image for scanning
+        run: docker build --tag k8s-ai-troubleshooter:ci .
+
+      - name: Scan filesystem
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: k8s-ai-troubleshooter:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0.20.2
+        with:
+          image: k8s-ai-troubleshooter:ci
+          artifact-name: k8s-ai-troubleshooter-sbom.spdx.json
+          output-file: k8s-ai-troubleshooter-sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-ai-troubleshooter-sbom
+          path: k8s-ai-troubleshooter-sbom.spdx.json

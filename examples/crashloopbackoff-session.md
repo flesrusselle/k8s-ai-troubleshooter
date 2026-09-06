@@ -18,7 +18,7 @@ Executing safe read-only queries:
 kubectl config current-context
 # Output: staging-cluster-us-east-1
 
-kubectl get pods -n staging -l app=payment-api
+kubectl get pods --namespace staging -l app=payment-api
 ```
 
 ```text
@@ -31,7 +31,7 @@ payment-api-6d87f59b6c-x9z42   0/1     CrashLoopBackOff   6          12m
 ### 2. Evidence Collection
 
 ```bash
-kubectl describe pod payment-api-6d87f59b6c-x9z42 -n staging
+kubectl describe pod payment-api-6d87f59b6c-x9z42 --namespace staging
 ```
 
 ```text
@@ -47,7 +47,7 @@ Container Status:
 ```
 
 ```bash
-kubectl logs payment-api-6d87f59b6c-x9z42 -n staging --previous --tail=20
+kubectl logs payment-api-6d87f59b6c-x9z42 --namespace staging --previous --tail=20
 ```
 
 ```text
@@ -59,7 +59,7 @@ kubectl logs payment-api-6d87f59b6c-x9z42 -n staging --previous --tail=20
 ### 3. Owner & Helm Release Ownership Check
 
 ```bash
-kubectl get deployment payment-api -n staging -o jsonpath='{.metadata.labels}'
+kubectl get deployment payment-api --namespace staging -o jsonpath='{.metadata.labels}'
 ```
 
 ```json
@@ -80,10 +80,10 @@ Pod `payment-api-6d87f59b6c-x9z42` in namespace `staging` is crashing repeatedly
 
 ## What I Checked
 - `kubectl config current-context`
-- `kubectl get pods -n staging`
-- `kubectl describe pod payment-api-6d87f59b6c-x9z42 -n staging`
-- `kubectl logs payment-api-6d87f59b6c-x9z42 -n staging --previous`
-- `helm status payment-service -n staging`
+- `kubectl get pods --namespace staging`
+- `kubectl describe pod payment-api-6d87f59b6c-x9z42 --namespace staging`
+- `kubectl logs payment-api-6d87f59b6c-x9z42 --namespace staging --previous`
+- `helm status payment-service --namespace staging`
 
 ## Evidence
 1. Container terminated with `Exit Code 1`.
@@ -103,7 +103,7 @@ Verify `redis-staging` service endpoints in the `staging` namespace and update H
 Human approval required before running remediation:
 
 ```bash
-kubectl get endpoints redis-staging -n staging
-helm upgrade payment-service ./charts/payment-service -n staging -f values-staging.yaml
+kubectl get endpoints redis-staging --namespace staging
+helm upgrade payment-service ./charts/payment-service --namespace staging -f values-staging.yaml
 ```
 ```

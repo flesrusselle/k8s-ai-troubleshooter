@@ -21,17 +21,17 @@ specific nodes have no pod from the DaemonSet.
 
 ```bash
 # 1. Desired vs current vs ready — the gap tells you which problem you have
-kubectl get daemonset <name> -n <namespace> -o wide
+kubectl get daemonset <name> --namespace <namespace> -o wide
 
 # 2. Which nodes are missing a pod
-kubectl get pods -n <namespace> -l <selector> -o wide --sort-by=.spec.nodeName
+kubectl get pods --namespace <namespace> -l <selector> -o wide --sort-by=.spec.nodeName
 kubectl get nodes
 
 # 3. Taints on the nodes that were skipped
 kubectl get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints'
 
 # 4. Why the scheduler declined
-kubectl describe daemonset <name> -n <namespace>
+kubectl describe daemonset <name> --namespace <namespace>
 ```
 
 ## Detailed Investigation
@@ -93,7 +93,7 @@ DaemonSet's tolerations:
 
 ```bash
 kubectl get node <node> -o jsonpath='{.spec.taints}{"\n"}'
-kubectl get daemonset <name> -n <namespace> -o jsonpath='{.spec.template.spec.tolerations}{"\n"}'
+kubectl get daemonset <name> --namespace <namespace> -o jsonpath='{.spec.template.spec.tolerations}{"\n"}'
 ```
 
 A taint with no matching toleration is a complete explanation for a missing pod
@@ -119,15 +119,15 @@ this DaemonSet.
 
 ## Verification
 ```bash
-kubectl get daemonset <name> -n <namespace> -o wide
-kubectl get pods -n <namespace> -l <selector> -o wide
+kubectl get daemonset <name> --namespace <namespace> -o wide
+kubectl get pods --namespace <namespace> -l <selector> -o wide
 ```
 Verified when `DESIRED` equals the number of nodes that should run the agent and
 `READY` equals `DESIRED`. `DESIRED` matching alone means the controller intends
 to place pods, not that they are running.
 
 ## Rollback
-`kubectl rollout undo daemonset/<name> -n <namespace>` restores the previous
+`kubectl rollout undo daemonset/<name> --namespace <namespace>` restores the previous
 template. A removed taint must be reapplied explicitly, and pods scheduled onto
 the node while it was absent will not leave on their own.
 

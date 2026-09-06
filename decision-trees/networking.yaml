@@ -7,7 +7,7 @@ trigger:
 steps:
   - id: "step-1-trace-ingress"
     action: "read"
-    command: "kubectl get ingress -n <namespace>"
+    command: "kubectl get ingress --namespace <namespace>"
     purpose: "Verify Ingress resource rules, hosts, paths, and backend service names"
     outcomes:
       - condition: "Ingress target service exists"
@@ -19,7 +19,7 @@ steps:
 
   - id: "step-2-verify-service"
     action: "inspect"
-    command: "kubectl get svc <service-name> -n <namespace> -o json"
+    command: "kubectl get svc <service-name> --namespace <namespace> -o json"
     purpose: "Inspect service selector and target ports"
     outcomes:
       - condition: "Service selector exists"
@@ -27,7 +27,7 @@ steps:
 
   - id: "step-3-check-endpoints"
     action: "inspect"
-    command: "kubectl get endpoints <service-name> -n <namespace>"
+    command: "kubectl get endpoints <service-name> --namespace <namespace>"
     purpose: "Check if service has active pod IPs bound to endpoints"
     outcomes:
       - condition: "Endpoints list is empty (<none>)"
@@ -39,7 +39,7 @@ steps:
 
   - id: "step-4-check-coredns"
     action: "inspect"
-    command: "kubectl get pods -n kube-system -l k8s-app=kube-dns"
+    command: "kubectl get pods --namespace kube-system -l k8s-app=kube-dns"
     purpose: "Inspect CoreDNS pod health and readiness"
     outcomes:
       - condition: "CoreDNS pods non-running or CrashLooping"
@@ -49,7 +49,7 @@ steps:
 
   - id: "step-confirm-root-cause"
     action: "confirm"
-    command: "kubectl get networkpolicies -n <namespace>"
+    command: "kubectl get networkpolicies --namespace <namespace>"
     purpose: "Check NetworkPolicy rules blocking traffic between namespace components"
     next: "step-remediation-approval"
 

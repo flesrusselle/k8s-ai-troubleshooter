@@ -1,0 +1,114 @@
+{{- if .Values.cronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "k8s-ai-troubleshooter.fullname" . }}
+  labels:
+    {{- include "k8s-ai-troubleshooter.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronJob.schedule | quote }}
+  concurrencyPolicy: {{ .Values.cronJob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cronJob.backoffLimit }}
+      # Kill jobs that exceed the allowed wall-clock time.
+      activeDeadlineSeconds: {{ .Values.cronJob.activeDeadlineSeconds }}
+      # Auto-delete finished Job objects to keep the API server tidy.
+      ttlSecondsAfterFinished: {{ .Values.cronJob.ttlSecondsAfterFinished }}
+      template:
+        metadata:
+          labels:
+            {{- include "k8s-ai-troubleshooter.selectorLabels" . | nindent 12 }}
+          {{- with .Values.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          restartPolicy: {{ .Values.cronJob.restartPolicy }}
+          serviceAccountName: {{ include "k8s-ai-troubleshooter.serviceAccountName" . }}
+          # Do not auto-mount the service account token; the RBAC ClusterRole
+          # grants the necessary permissions via the projected token below.
+          automountServiceAccountToken: false
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: collector
+              image: {{ include "k8s-ai-troubleshooter.image" . | quote }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              args:
+                - collect
+                {{- if .Values.collector.allNamespaces }}
+                - --all-namespaces
+                {{- else if .Values.collector.namespace }}
+                - --namespace
+                - {{ .Values.collector.namespace | quote }}
+                {{- end }}
+                - --output
+                - /evidence/bundle
+                - --timeout
+                - {{ .Values.collector.timeoutSeconds | quote }}
+                {{- if not .Values.collector.includePods }}
+                - --no-pods
+                {{- end }}
+                {{- if not .Values.collector.includeOptional }}
+                - --no-optional
+                {{- end }}
+              env:
+                - name: K8S_AI_TROUBLESHOOTER_SESSION_LOG
+                  value: /evidence/sessions.jsonl
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              volumeMounts:
+                - name: evidence
+                  mountPath: /evidence
+                - name: tmp
+                  mountPath: /tmp
+                - name: kube-api-access
+                  mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+                  readOnly: true
+          volumes:
+            - name: evidence
+              {{- if .Values.persistence.enabled }}
+              persistentVolumeClaim:
+                claimName: {{ default (printf "%s-evidence" (include "k8s-ai-troubleshooter.fullname" .)) .Values.persistence.existingClaim }}
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+            - name: tmp
+              emptyDir: {}
+            # Projected service account token with a bounded TTL (best practice
+            # when automountServiceAccountToken is disabled at pod level).
+            - name: kube-api-access
+              projected:
+                sources:
+                  - serviceAccountToken:
+                      path: token
+                      expirationSeconds: 3607
+                  - configMap:
+                      name: kube-root-ca.crt
+                      items:
+                        - key: ca.crt
+                          path: ca.crt
+                  - downwardAPI:
+                      items:
+                        - path: namespace
+                          fieldRef:
+                            apiVersion: v1
+                            fieldPath: metadata.namespace
+{{- end }}

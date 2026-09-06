@@ -24,18 +24,18 @@ Job pods are deleted on cleanup, taking their logs with them. Capture logs
 
 ```bash
 # 1. Job state
-kubectl get jobs -n <namespace>
-kubectl describe job <job-name> -n <namespace>
+kubectl get jobs --namespace <namespace>
+kubectl describe job <job-name> --namespace <namespace>
 
 # 2. Logs from the Job's pods — get these first
-kubectl logs -n <namespace> -l job-name=<job-name> --tail=200 --all-containers
+kubectl logs --namespace <namespace> -l job-name=<job-name> --tail=200 --all-containers
 
 # 3. CronJob schedule state
-kubectl get cronjob <name> -n <namespace> \
+kubectl get cronjob <name> --namespace <namespace> \
   -o custom-columns='NAME:.metadata.name,SCHEDULE:.spec.schedule,SUSPEND:.spec.suspend,ACTIVE:.status.active,LAST:.status.lastScheduleTime'
 
 # 4. Pods left behind
-kubectl get pods -n <namespace> --field-selector=status.phase=Failed
+kubectl get pods --namespace <namespace> --field-selector=status.phase=Failed
 ```
 
 ## Detailed Investigation
@@ -101,8 +101,8 @@ Confirm a suspected schedule or image problem by running the Job manually,
 outside the schedule:
 
 ```bash
-kubectl create job --from=cronjob/<cronjob-name> <name>-manual -n <namespace>
-kubectl logs -n <namespace> -l job-name=<name>-manual --follow
+kubectl create job --from=cronjob/<cronjob-name> <name>-manual --namespace <namespace>
+kubectl logs --namespace <namespace> -l job-name=<name>-manual --follow
 ```
 
 If the manual run succeeds, the fault is in scheduling — suspension, cron
@@ -120,14 +120,14 @@ messages, or charge money. Deleting a Job removes its history and its pods,
 taking the logs with them. Unsuspending a CronJob can trigger catch-up runs.
 
 ## Human Approval Required
-- `kubectl create job --from=cronjob/<name> <name>-manual -n <namespace>` — runs real work
-- `kubectl patch cronjob <name> -n <ns> -p '{"spec":{"suspend":false}}'`
-- `kubectl delete job <name> -n <namespace>` — **DESTRUCTIVE**, discards job history
+- `kubectl create job --from=cronjob/<name> <name>-manual --namespace <namespace>` — runs real work
+- `kubectl patch cronjob <name> --namespace <ns> -p '{"spec":{"suspend":false}}'`
+- `kubectl delete job <name> --namespace <namespace>` — **DESTRUCTIVE**, discards job history
 
 ## Verification
 ```bash
-kubectl get jobs -n <namespace>
-kubectl logs -n <namespace> -l job-name=<job-name> --tail=50
+kubectl get jobs --namespace <namespace>
+kubectl logs --namespace <namespace> -l job-name=<job-name> --tail=50
 ```
 Verified when the Job reports `COMPLETIONS 1/1` and its logs show the work
 actually finished. Exit code 0 is not sufficient: a script that swallows errors

@@ -117,7 +117,7 @@ class TestManifestCoversTheCollectorPlan(unittest.TestCase):
 
     def _plan_steps(self):
         for name, template in CLUSTER_PLAN + NAMESPACE_PLAN:
-            yield name, template.format(ns_flag="-n x").strip()
+            yield name, template.format(ns_flag="--namespace x").strip()
 
     def test_every_plan_resource_has_a_matching_rule(self):
         for name, command in self._plan_steps():

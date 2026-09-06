@@ -144,14 +144,14 @@ You:  A pod is showing exit code 137. What now?
 
 Model: [calls route_symptom("137")]
        → runbooks/pods/oomkilled.md, tree decision-trees/pod-failure.yaml,
-         first_command: kubectl describe pod <pod> -n <namespace>
+         first_command: kubectl describe pod <pod> --namespace <namespace>
 
        [calls get_runbook("oomkilled")]
 
        137 is SIGKILL, which in practice means the OOM killer. Following
        oomkilled.md, I need the memory limit versus actual usage.
 
-       [calls query_command_safety("kubectl describe pod api-1 -n prod")]
+       [calls query_command_safety("kubectl describe pod api-1 --namespace prod")]
        → SAFE_READ, automatic_execution_allowed: true
 
        [runs it via the shell tool]

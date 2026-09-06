@@ -38,7 +38,7 @@ kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.m
 3. **Inspect Owner References**:
    Determine if the failing pod belongs to a `Deployment`, `StatefulSet`, `DaemonSet`, or `Job`:
    ```bash
-   kubectl get pod <pod-name> -n <namespace> -o jsonpath='{.metadata.ownerReferences}'
+   kubectl get pod <pod-name> --namespace <namespace> -o jsonpath='{.metadata.ownerReferences}'
    ```
 
 ## Decision Tree

@@ -129,7 +129,7 @@ intercepts — cluster-wide, for the duration.
 ## Human Approval Required
 - Certificate renewal on control plane nodes — **DESTRUCTIVE**, requires component restarts and is performed outside this repository's read-only scope
 - `kubectl apply -f <updated-webhook-config>.yaml`
-- `kubectl delete secret <tls-secret> -n <ns>` to force cert-manager reissue — **DESTRUCTIVE**
+- `kubectl delete secret <tls-secret> --namespace <ns>` to force cert-manager reissue — **DESTRUCTIVE**
 
 ## Verification
 ```bash

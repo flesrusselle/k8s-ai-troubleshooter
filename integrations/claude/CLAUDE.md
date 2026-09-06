@@ -88,7 +88,7 @@ instead of investigated from zero every time. See `docs/session-log.md`.
 For wide problems, collect once instead of command-by-command:
 
 ```bash
-python3 scripts/collect.py -n <namespace> -o evidence-bundle
+python3 scripts/collect.py --namespace <namespace> --output evidence-bundle
 ```
 
 Every command it runs is classified read-only before execution, and all output

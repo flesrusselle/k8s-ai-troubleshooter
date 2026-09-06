@@ -1,0 +1,70 @@
+version: "1.0"
+catalog: "kustomize-diagnostics"
+commands:
+  - name: "kustomize-build"
+    command: "kustomize build overlays/prod"
+    category: "kustomize"
+    purpose: "Render a local Kustomize overlay without applying it to a cluster"
+    safety: "SAFE_DIAGNOSTIC"
+    requires: ["overlay-path"]
+    namespace_scope: false
+    cluster_scope: false
+    expected_output: "Rendered Kubernetes manifest stream"
+    failure_modes:
+      - "Base or resource path missing"
+      - "Deprecated or invalid Kubernetes fields"
+      - "Kustomization cannot be rendered"
+    official_docs: "https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/"
+
+  - name: "kustomize-config-tree"
+    command: "kustomize cfg tree overlays/prod"
+    category: "kustomize"
+    purpose: "Inspect the local Kustomize configuration tree"
+    safety: "SAFE_READ"
+    requires: ["overlay-path"]
+    namespace_scope: false
+    cluster_scope: false
+    expected_output: "Resource and configuration tree"
+    failure_modes:
+      - "Path is not a valid configuration"
+    official_docs: "https://kubectl.docs.kubernetes.io/references/kustomize/cfg/tree/"
+
+  - name: "kustomize-version"
+    command: "kustomize version"
+    category: "kustomize"
+    purpose: "Report the installed standalone Kustomize version"
+    safety: "SAFE_DIAGNOSTIC"
+    requires: []
+    namespace_scope: false
+    cluster_scope: false
+    expected_output: "Kustomize version information"
+    failure_modes:
+      - "Kustomize is not installed"
+    official_docs: "https://kubectl.docs.kubernetes.io/commands/kustomize/"
+
+  - name: "kustomize-build-with-plugins"
+    command: "kustomize build overlays/prod --enable-alpha-plugins"
+    category: "kustomize"
+    purpose: "Render with external plugin execution enabled"
+    safety: "HUMAN_APPROVAL_REQUIRED"
+    requires: ["overlay-path"]
+    namespace_scope: false
+    cluster_scope: false
+    expected_output: "Rendered Kubernetes manifest stream"
+    failure_modes:
+      - "Plugin code execution risk"
+      - "Plugin unavailable"
+    official_docs: "https://kubectl.docs.kubernetes.io/guides/plugins/execplugin/"
+
+  - name: "kustomize-edit"
+    command: "kustomize edit add resource deployment.yaml"
+    category: "kustomize"
+    purpose: "Modify a local kustomization file"
+    safety: "HUMAN_APPROVAL_REQUIRED"
+    requires: ["resource-path"]
+    namespace_scope: false
+    cluster_scope: false
+    expected_output: "Updated local kustomization file"
+    failure_modes:
+      - "Local file is not writable"
+    official_docs: "https://kubectl.docs.kubernetes.io/references/kustomize/cmd/edit/"
