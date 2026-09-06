@@ -40,7 +40,8 @@ RUN apk add --no-cache ca-certificates curl tar \
 
 WORKDIR /app
 COPY requirements.txt ./
-RUN python3 -m pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
+RUN python3 -m pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" \
+    && python3 -m pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 COPY . .
 
 RUN addgroup -S -g 65532 app \
