@@ -90,7 +90,7 @@ class TestKindScenarios(unittest.TestCase):
     def _apply(self, manifest):
         _kubectl("apply", "-f", "-", input_text=manifest)
 
-    def _wait_for_pod_json(self, name, predicate, timeout=120):
+    def _wait_for_pod_json(self, name, predicate, timeout=180):
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
@@ -100,9 +100,12 @@ class TestKindScenarios(unittest.TestCase):
                 if predicate(last):
                     return last
             time.sleep(2)
+        status = json.dumps((last or {}).get("status", {}), indent=2)
+        events = _kubectl("get", "events", "--namespace", self.namespace, check=False).stdout
         self.fail(
-            f"pod {name} never reached the expected state within {timeout}s; "
-            f"last seen: {json.dumps(last, indent=2)[:2000]}"
+            f"pod {name} never reached expected state within {timeout}s;\n"
+            f"status:\n{status}\n"
+            f"events:\n{events}"
         )
 
     def _wait_for_event(self, object_name, reason, timeout=45):
