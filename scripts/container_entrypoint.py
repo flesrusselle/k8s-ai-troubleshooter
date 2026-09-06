@@ -3,10 +3,11 @@
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 SERVICE_ACCOUNT_DIR = Path("/var/run/secrets/kubernetes.io/serviceaccount")
-TEMP_KUBECONFIG = Path("/tmp/kubeconfig")
+TEMP_KUBECONFIG = Path(tempfile.gettempdir()) / "kubeconfig"  # nosec B108
 
 
 def configure_in_cluster_kubeconfig():

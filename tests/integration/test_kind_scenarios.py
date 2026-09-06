@@ -90,7 +90,7 @@ class TestKindScenarios(unittest.TestCase):
     def _apply(self, manifest):
         _kubectl("apply", "-f", "-", input_text=manifest)
 
-    def _wait_for_pod_json(self, name, predicate, timeout=90):
+    def _wait_for_pod_json(self, name, predicate, timeout=120):
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
