@@ -1,0 +1,19 @@
+apiVersion: v2
+name: k8s-ai-troubleshooter
+description: Read-only Kubernetes evidence collection for k8s-ai-troubleshooter
+type: application
+version: 0.2.0
+appVersion: 0.2.0
+# batch/v1 CronJob GA since 1.21; compatible with Kubernetes 1.25+
+kubeVersion: ">=1.25.0-0"
+keywords:
+  - kubernetes
+  - ai
+  - troubleshooter
+  - diagnostics
+  - evidence-collection
+home: https://github.com/example/k8s-ai-troubleshooter
+sources:
+  - https://github.com/example/k8s-ai-troubleshooter
+maintainers:
+  - name: k8s-ai-troubleshooter maintainers

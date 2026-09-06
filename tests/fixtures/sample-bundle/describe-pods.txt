@@ -1,0 +1,27 @@
+Name:         payment-service-7d9f8b-xk2lp
+Namespace:    production
+Status:       Running
+
+Containers:
+  payment:
+    Limits:
+      cpu:     500m
+      memory:  2Gi
+    Requests:
+      cpu:     250m
+      memory:  512Mi
+  State:  OOMKilled
+
+Name:         auth-service-6c8b9d-mn4qr
+Namespace:    production
+Status:       Running
+
+Containers:
+  auth:
+    Limits:
+      cpu:     200m
+      memory:  256Mi
+    Requests:
+      cpu:     100m
+      memory:  128Mi
+  State:  CrashLoopBackOff

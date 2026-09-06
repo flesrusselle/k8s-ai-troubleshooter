@@ -17,10 +17,10 @@ Triggered when pod status remains `Pending` without transitioning to `Running` o
 
 ```bash
 # 1. Fetch scheduler decision events
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <pod-name> --namespace <namespace>
 
 # 2. Check PVC binding status (if pod requests storage)
-kubectl get pvc -n <namespace>
+kubectl get pvc --namespace <namespace>
 
 # 3. Check cluster resource capacity vs requested resources
 kubectl describe nodes | grep -E "Allocated resources|Resource" -A 8
@@ -45,7 +45,7 @@ Pending Pod
    If pod uses a PVC, ensure PVC is `Bound`.
 3. **Inspect Namespace Quotas**:
    ```bash
-   kubectl get resourcequotas -n <namespace>
+   kubectl get resourcequotas --namespace <namespace>
    ```
 
 ## Decision Tree
@@ -82,7 +82,7 @@ or OOMKills later — it moves the failure rather than removing it.
 
 ## Verification
 ```bash
-kubectl get pod <pod-name> -n <namespace> -o wide
+kubectl get pod <pod-name> --namespace <namespace> -o wide
 ```
 Verified when the pod shows a `NODE` assignment and leaves `Pending`. Confirm no
 other workload was displaced: re-run the cluster-wide Pending query and check

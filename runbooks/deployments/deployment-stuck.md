@@ -17,13 +17,13 @@ Triggered when `kubectl rollout status deployment/<name>` hangs or reports `Prog
 
 ```bash
 # 1. Check deployment rollout status
-kubectl rollout status deployment/<deployment-name> -n <namespace>
+kubectl rollout status deployment/<deployment-name> --namespace <namespace>
 
 # 2. Inspect ReplicaSets created by deployment
-kubectl get rs -n <namespace> -l app=<app-label>
+kubectl get rs --namespace <namespace> -l app=<app-label>
 
 # 3. Inspect status of pods owned by new ReplicaSet
-kubectl describe pod -n <namespace> -l pod-template-hash=<new-hash>
+kubectl describe pod --namespace <namespace> -l pod-template-hash=<new-hash>
 ```
 
 ## Detailed Investigation
@@ -66,19 +66,19 @@ additional cluster capacity during the rollout and can push a namespace over its
 ResourceQuota, blocking unrelated deployments.
 
 ## Human Approval Required
-- `kubectl rollout undo deployment/<deployment-name> -n <namespace>` (**HUMAN APPROVAL REQUIRED**)
+- `kubectl rollout undo deployment/<deployment-name> --namespace <namespace>` (**HUMAN APPROVAL REQUIRED**)
 
 ## Verification
 ```bash
-kubectl rollout status deployment/<name> -n <namespace> --timeout=120s
-kubectl get deployment <name> -n <namespace>
+kubectl rollout status deployment/<name> --namespace <namespace> --timeout=120s
+kubectl get deployment <name> --namespace <namespace>
 ```
 Verified when `rollout status` reports success and `READY` matches the desired
 replica count. `UP-TO-DATE` alone is not enough — it counts pods with the new
 template, including ones that are not ready.
 
 ## Rollback
-`kubectl rollout undo deployment/<name> -n <namespace>` restores the previous
+`kubectl rollout undo deployment/<name> --namespace <namespace>` restores the previous
 template as a new revision. Only `revisionHistoryLimit` revisions are retained,
 so an old target may no longer exist.
 

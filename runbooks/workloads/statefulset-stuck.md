@@ -21,16 +21,16 @@ rolling update stops at one pod and does not continue.
 
 ```bash
 # 1. StatefulSet state and update strategy
-kubectl describe statefulset <name> -n <namespace>
+kubectl describe statefulset <name> --namespace <namespace>
 
 # 2. Which ordinal is stuck — order matters here
-kubectl get pods -n <namespace> -l app=<label> --sort-by=.metadata.name
+kubectl get pods --namespace <namespace> -l app=<label> --sort-by=.metadata.name
 
 # 3. The per-ordinal PVC, which is the usual culprit
-kubectl get pvc -n <namespace> -l app=<label>
+kubectl get pvc --namespace <namespace> -l app=<label>
 
 # 4. The blocked pod itself
-kubectl describe pod <name>-<ordinal> -n <namespace>
+kubectl describe pod <name>-<ordinal> --namespace <namespace>
 ```
 
 ## Detailed Investigation
@@ -97,7 +97,7 @@ Confirm the ordering hypothesis by verifying the readiness of the ordinal below
 the stuck one:
 
 ```bash
-kubectl get pod <name>-<ordinal-1> -n <namespace> \
+kubectl get pod <name>-<ordinal-1> --namespace <namespace> \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{"\n"}'
 ```
 
@@ -118,14 +118,14 @@ Deleting a PVC destroys that ordinal's data permanently. Switching to
 which some clustered applications depend on for correctness.
 
 ## Human Approval Required
-- `kubectl rollout restart statefulset/<name> -n <namespace>`
-- `kubectl patch statefulset <name> -n <ns> -p '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":0}}}}'`
-- `kubectl delete pvc <claim> -n <namespace>` — **DESTRUCTIVE**, destroys the volume's data
+- `kubectl rollout restart statefulset/<name> --namespace <namespace>`
+- `kubectl patch statefulset <name> --namespace <ns> -p '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":0}}}}'`
+- `kubectl delete pvc <claim> --namespace <namespace>` — **DESTRUCTIVE**, destroys the volume's data
 
 ## Verification
 ```bash
-kubectl get statefulset <name> -n <namespace>
-kubectl get pods -n <namespace> -l app=<label> --sort-by=.metadata.name
+kubectl get statefulset <name> --namespace <namespace>
+kubectl get pods --namespace <namespace> -l app=<label> --sort-by=.metadata.name
 ```
 Verified when `READY` matches the desired replica count and every ordinal is
 Running and Ready in sequence. Check the application's own clustering state too

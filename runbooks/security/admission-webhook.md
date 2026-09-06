@@ -31,11 +31,11 @@ kubectl get validatingwebhookconfigurations <name> \
   -o jsonpath='{range .webhooks[*]}{.name}{"\t"}{.failurePolicy}{"\t"}{.clientConfig.service.namespace}/{.clientConfig.service.name}{"\n"}{end}'
 
 # 3. Is the backing service alive?
-kubectl get pods -n <webhook-namespace>
-kubectl get endpoints -n <webhook-namespace> <webhook-service>
+kubectl get pods --namespace <webhook-namespace>
+kubectl get endpoints --namespace <webhook-namespace> <webhook-service>
 
 # 4. The webhook pod's own logs
-kubectl logs -n <webhook-namespace> -l <webhook-selector> --tail=100
+kubectl logs --namespace <webhook-namespace> -l <webhook-selector> --tail=100
 ```
 
 ## Detailed Investigation
@@ -99,7 +99,7 @@ Self-contained; branch on denial versus outage as above.
 Confirm reachability from inside the cluster:
 
 ```bash
-kubectl get endpoints -n <webhook-namespace> <webhook-service>
+kubectl get endpoints --namespace <webhook-namespace> <webhook-service>
 ```
 
 Empty endpoints with `failurePolicy: Fail` is a complete explanation for
@@ -121,12 +121,12 @@ tempting during an incident and why it needs a tracked restoration.
 
 ## Human Approval Required
 - `kubectl apply -f <webhook-configuration>.yaml`
-- `kubectl rollout restart deployment/<webhook> -n <webhook-namespace>`
+- `kubectl rollout restart deployment/<webhook> --namespace <webhook-namespace>`
 - `kubectl delete validatingwebhookconfiguration <name>` — **DESTRUCTIVE**, disables policy enforcement cluster-wide
 
 ## Verification
 ```bash
-kubectl get endpoints -n <webhook-namespace> <webhook-service>
+kubectl get endpoints --namespace <webhook-namespace> <webhook-service>
 kubectl apply --dry-run=server -f <a-representative-manifest>.yaml
 ```
 Verified when the webhook's Service has endpoints and a server-side dry-run

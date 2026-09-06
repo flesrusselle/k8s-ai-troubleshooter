@@ -20,10 +20,10 @@ Triggered when `helm upgrade` or `helm install` fails, or a Helm release status 
 helm list -A
 
 # 2. Inspect detailed status of affected release
-helm status <release-name> -n <namespace>
+helm status <release-name> --namespace <namespace>
 
 # 3. View revision history
-helm history <release-name> -n <namespace>
+helm history <release-name> --namespace <namespace>
 ```
 
 ## Detailed Investigation
@@ -33,11 +33,11 @@ helm history <release-name> -n <namespace>
    - `pending-upgrade`: Previous helm upgrade process was killed mid-execution, leaving secret lock active.
 2. **Inspect Deployed User Values**:
    ```bash
-   helm get values <release-name> -n <namespace>
+   helm get values <release-name> --namespace <namespace>
    ```
 3. **Inspect Rendered Manifests**:
    ```bash
-   helm get manifest <release-name> -n <namespace>
+   helm get manifest <release-name> --namespace <namespace>
    ```
 
 ## Decision Tree
@@ -67,21 +67,21 @@ chart's diff — including PersistentVolumeClaims in some charts. `helm rollback
 carries the same risk in reverse. Review the diff before either.
 
 ## Human Approval Required
-- `helm rollback <release-name> <revision-number> -n <namespace>` (**HUMAN APPROVAL REQUIRED**)
-- `helm uninstall <release-name> -n <namespace>` (**DESTRUCTIVE — HUMAN APPROVAL REQUIRED**)
+- `helm rollback <release-name> <revision-number> --namespace <namespace>` (**HUMAN APPROVAL REQUIRED**)
+- `helm uninstall <release-name> --namespace <namespace>` (**DESTRUCTIVE — HUMAN APPROVAL REQUIRED**)
 
 ## Verification
 ```bash
-helm status <release> -n <namespace>
-helm history <release> -n <namespace>
-kubectl get pods -n <namespace>
+helm status <release> --namespace <namespace>
+helm history <release> --namespace <namespace>
+kubectl get pods --namespace <namespace>
 ```
 Verified when `helm status` reports `deployed`, the newest revision is the one
 you intended, and the underlying pods are healthy. A `deployed` release with
 failing pods means Helm succeeded and the workload did not.
 
 ## Rollback
-`helm rollback <release> <revision> -n <namespace>` returns the previous
+`helm rollback <release> <revision> --namespace <namespace>` returns the previous
 manifest as a new revision. It does not restore data deleted by the failed
 upgrade, and it cannot recover a release whose history was pruned by
 `--history-max`.

@@ -21,17 +21,17 @@ or oscillates between replica counts.
 
 ```bash
 # 1. HPA state — TARGETS is the field that matters
-kubectl get hpa -n <namespace>
+kubectl get hpa --namespace <namespace>
 
 # 2. The conditions explain the refusal directly
-kubectl describe hpa <name> -n <namespace>
+kubectl describe hpa <name> --namespace <namespace>
 
 # 3. Is the metrics pipeline alive at all?
-kubectl top pods -n <namespace>
+kubectl top pods --namespace <namespace>
 kubectl get apiservice v1beta1.metrics.k8s.io
 
 # 4. Requests must exist for percentage targets to mean anything
-kubectl get deployment <name> -n <namespace> \
+kubectl get deployment <name> --namespace <namespace> \
   -o jsonpath='{.spec.template.spec.containers[*].resources}{"\n"}'
 ```
 
@@ -102,7 +102,7 @@ Self-contained; branch on whether `TARGETS` reads `<unknown>`.
 Confirm the missing-request hypothesis directly:
 
 ```bash
-kubectl get deployment <name> -n <namespace> \
+kubectl get deployment <name> --namespace <namespace> \
   -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.resources.requests}{"\n"}{end}'
 ```
 
@@ -122,13 +122,13 @@ replica. Manual scaling while an HPA is active causes the two to fight.
 
 ## Human Approval Required
 - `kubectl apply -f <deployment-with-requests>.yaml`
-- `kubectl patch hpa <name> -n <ns> -p '{"spec":{"maxReplicas":20}}'`
-- `kubectl scale deployment/<name> --replicas=<n> -n <ns>` — conflicts with the HPA while it is active
+- `kubectl patch hpa <name> --namespace <ns> -p '{"spec":{"maxReplicas":20}}'`
+- `kubectl scale deployment/<name> --replicas=<n> --namespace <ns>` — conflicts with the HPA while it is active
 
 ## Verification
 ```bash
-kubectl get hpa <name> -n <namespace>
-kubectl get pods -n <namespace> -l app=<label>
+kubectl get hpa <name> --namespace <namespace>
+kubectl get pods --namespace <namespace> -l app=<label>
 ```
 Verified when `TARGETS` shows a real percentage rather than `<unknown>`, and
 replica count responds to load in both directions. Scaling up is the easy half —

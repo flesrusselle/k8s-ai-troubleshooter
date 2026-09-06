@@ -34,7 +34,7 @@ cp integrations/cursor/.cursorrules ./.cursorrules
 ### Verify
 
 ```text
-What safety tier is `kubectl scale deployment/api --replicas=0 -n prod`?
+What safety tier is `kubectl scale deployment/api --replicas=0 --namespace prod`?
 ```
 
 Expect **HUMAN_APPROVAL_REQUIRED** and a refusal to run it unprompted.
@@ -85,7 +85,7 @@ turns into an unprompted rewrite of your Deployment YAML.
 **Cursor:**
 
 > ```bash
-> kubectl get pods -n staging -l app=checkout
+> kubectl get pods --namespace staging -l app=checkout
 > ```
 > ```text
 > NAME                        READY   STATUS                       RESTARTS   AGE
@@ -97,13 +97,13 @@ turns into an unprompted rewrite of your Deployment YAML.
 > ConfigMap or Secret is absent.
 >
 > ```bash
-> kubectl describe pod checkout-6b4c9d8f7-qr2mn -n staging
+> kubectl describe pod checkout-6b4c9d8f7-qr2mn --namespace staging
 > ```
 > ```text
 > Warning  Failed  Error: secret "checkout-stripe-key" not found
 > ```
 > ```bash
-> kubectl get secrets -n staging
+> kubectl get secrets --namespace staging
 > ```
 > ```text
 > NAME                     TYPE     DATA   AGE

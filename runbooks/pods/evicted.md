@@ -17,10 +17,10 @@ Triggered when pod status reports `Evicted`.
 
 ```bash
 # 1. List evicted pods in namespace
-kubectl get pods -n <namespace> --field-selector status.phase=Failed
+kubectl get pods --namespace <namespace> --field-selector status.phase=Failed
 
 # 2. Inspect eviction reason and message
-kubectl get pod <pod-name> -n <namespace> -o jsonpath='{.status.reason}{"\t"}{.status.message}{"\n"}'
+kubectl get pod <pod-name> --namespace <namespace> -o jsonpath='{.status.reason}{"\t"}{.status.message}{"\n"}'
 ```
 
 ## Detailed Investigation
@@ -60,12 +60,12 @@ and nothing else. The real remediation — freeing node resources — affects ev
 workload on that node.
 
 ## Human Approval Required
-- `kubectl delete pod --field-selector status.phase=Failed -n <namespace>` — **DESTRUCTIVE** by classification, though evicted pods are already dead; this only reclaims their API objects
+- `kubectl delete pod --field-selector status.phase=Failed --namespace <namespace>` — **DESTRUCTIVE** by classification, though evicted pods are already dead; this only reclaims their API objects
 - Node cleanup commands.
 
 ## Verification
 ```bash
-kubectl get pods -n <namespace> --field-selector=status.phase=Failed
+kubectl get pods --namespace <namespace> --field-selector=status.phase=Failed
 kubectl describe node <node> | grep -A5 Conditions
 ```
 Verified when no new evictions occur and the node's `MemoryPressure` and

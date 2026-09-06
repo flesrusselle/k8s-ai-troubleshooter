@@ -17,10 +17,10 @@ Triggered when container restart count is elevated (e.g. > 10) despite pod curre
 
 ```bash
 # 1. Sort pods by restart count in namespace
-kubectl get pods -n <namespace> -o jsonpath='{range .items[*]}{.metadata.name}{"\tRestarts="}{range .status.containerStatuses[*]}{.restartCount}{" "}{end}{"\n"}{end}' | sort -k2 -n -r
+kubectl get pods --namespace <namespace> --output jsonpath='{range .items[*]}{.metadata.name}{"\tRestarts="}{range .status.containerStatuses[*]}{.restartCount}{" "}{end}{"\n"}{end}' | sort -k2 -n -r
 
 # 2. Inspect container last state termination history
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <pod-name> --namespace <namespace>
 ```
 
 ## Detailed Investigation
@@ -29,7 +29,7 @@ kubectl describe pod <pod-name> -n <namespace>
    Determine if restarts are driven by periodic OOMKills, intermittent liveness probe timeouts, or background job completion exit.
 2. **Review Chronological Events**:
    ```bash
-   kubectl get events -n <namespace> --field-selector involvedObject.name=<pod-name> --sort-by='.metadata.creationTimestamp'
+   kubectl get events --namespace <namespace> --field-selector involvedObject.name=<pod-name> --sort-by='.metadata.creationTimestamp'
    ```
 
 ## Decision Tree
@@ -63,7 +63,7 @@ carries that runbook's blast radius.
 
 ## Verification
 ```bash
-kubectl get pods -n <namespace> \
+kubectl get pods --namespace <namespace> \
   -o custom-columns='POD:.metadata.name,RESTARTS:.status.containerStatuses[0].restartCount'
 ```
 Verified when the restart count is stable across an interval longer than the

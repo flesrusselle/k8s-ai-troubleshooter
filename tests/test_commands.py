@@ -9,7 +9,7 @@ class TestCommands(unittest.TestCase):
         cmd_dir = REPO_ROOT / "commands"
         allowed_safety = ["SAFE_READ", "SAFE_DIAGNOSTIC", "HUMAN_APPROVAL_REQUIRED", "DESTRUCTIVE"]
         
-        for name in ["kubectl.yaml", "helm.yaml"]:
+        for name in ["kubectl.yaml", "helm.yaml", "kustomize.yaml"]:
             file_path = cmd_dir / name
             self.assertTrue(file_path.exists(), f"Command catalog missing: {name}")
             with open(file_path, "r", encoding="utf-8") as f:

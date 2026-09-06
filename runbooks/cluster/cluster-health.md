@@ -78,7 +78,7 @@ runbook should be treated as routine; a mistaken component restart is a
 cluster-wide outage.
 
 ## Human Approval Required
-- `kubectl rollout restart daemonset -n kube-system`
+- `kubectl rollout restart daemonset --namespace kube-system`
 - `kubectl cordon <node>` — stops new scheduling onto the node
 - `kubectl drain <node>` — **DESTRUCTIVE**, evicts every pod on the node
 

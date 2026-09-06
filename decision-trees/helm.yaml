@@ -15,7 +15,7 @@ steps:
 
   - id: "step-2-helm-status"
     action: "inspect"
-    command: "helm status <release-name> -n <namespace>"
+    command: "helm status <release-name> --namespace <namespace>"
     purpose: "Inspect release notes and error details"
     outcomes:
       - condition: "Status shows hook execution failure"
@@ -23,7 +23,7 @@ steps:
 
   - id: "step-3-helm-history"
     action: "inspect"
-    command: "helm history <release-name> -n <namespace>"
+    command: "helm history <release-name> --namespace <namespace>"
     purpose: "Identify last known good revision"
     outcomes:
       - condition: "Previous successful revision exists"
@@ -33,7 +33,7 @@ steps:
 
   - id: "step-confirm-root-cause"
     action: "confirm"
-    command: "helm get values <release-name> -n <namespace>"
+    command: "helm get values <release-name> --namespace <namespace>"
     purpose: "Inspect deployed user values for misconfigurations"
     next: "step-remediation-approval"
 

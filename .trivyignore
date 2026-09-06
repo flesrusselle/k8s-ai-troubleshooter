@@ -1,0 +1,26 @@
+# Trivy ignore list for k8s-ai-troubleshooter
+# Documented upstream vulnerabilities in compiled third-party binaries awaiting upstream releases.
+# As documented in docs/container-deployment.md, review and refresh these on each release.
+
+# Upstream Helm 4.2.4 compiled Go runtime vulnerabilities:
+CVE-2026-39821
+CVE-2026-46600
+CVE-2026-56853
+CVE-2026-56854
+CVE-2026-56858
+CVE-2026-56859
+CVE-2026-56860
+CVE-2026-56862
+CVE-2026-50163
+CVE-2026-33818
+
+# Python base image system dependencies awaiting next Alpine patch:
+CVE-2025-47273
+GHSA-6v7p-g79w-8964
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-76642
+CVE-2026-78408
+CVE-2026-78409
+CVE-2026-78410

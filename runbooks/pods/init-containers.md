@@ -25,17 +25,17 @@ misread as "no logs at all".
 
 ```bash
 # 1. Identify the init containers and which one is failing
-kubectl get pod <pod-name> -n <namespace> \
+kubectl get pod <pod-name> --namespace <namespace> \
   -o jsonpath='{range .status.initContainerStatuses[*]}{.name}{"\t"}{.state}{"\n"}{end}'
 
 # 2. Logs from the failing init container — note -c
-kubectl logs <pod-name> -n <namespace> -c <init-container-name>
+kubectl logs <pod-name> --namespace <namespace> -c <init-container-name>
 
 # 3. Previous attempt, if it is crash-looping
-kubectl logs <pod-name> -n <namespace> -c <init-container-name> --previous
+kubectl logs <pod-name> --namespace <namespace> -c <init-container-name> --previous
 
 # 4. Full state including exit codes
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <pod-name> --namespace <namespace>
 ```
 
 ## Detailed Investigation
@@ -97,7 +97,7 @@ Confirm by resolving the init container's own dependency and observing the pod
 advance:
 
 ```bash
-kubectl get pod <pod-name> -n <namespace> -w
+kubectl get pod <pod-name> --namespace <namespace> -w
 ```
 
 The `STATUS` should progress `Init:0/1` → `PodInitializing` → `Running`. If it
@@ -117,12 +117,12 @@ removes whatever precondition it enforced — if it guarded a schema migration,
 that is a data-integrity change, not a scheduling one.
 
 ## Human Approval Required
-- `kubectl rollout restart deployment/<name> -n <namespace>`
+- `kubectl rollout restart deployment/<name> --namespace <namespace>`
 - `kubectl apply -f <corrected-manifest>.yaml`
 
 ## Verification
 ```bash
-kubectl get pod <pod-name> -n <namespace> \
+kubectl get pod <pod-name> --namespace <namespace> \
   -o jsonpath='{.status.initContainerStatuses[*].state}{"\n"}'
 ```
 Verified when every init container reports `terminated` with `exitCode: 0` and

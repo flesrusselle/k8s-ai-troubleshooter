@@ -24,10 +24,10 @@ disruption budget`, or a cluster upgrade stalls on one node indefinitely.
 kubectl get pdb -A
 
 # 2. Which PDB covers the pod that will not evict
-kubectl describe pdb <name> -n <namespace>
+kubectl describe pdb <name> --namespace <namespace>
 
 # 3. Are the covered pods actually healthy?
-kubectl get pods -n <namespace> -l <pdb-selector> -o wide
+kubectl get pods --namespace <namespace> -l <pdb-selector> -o wide
 
 # 4. What is still on the node
 kubectl get pods -A --field-selector=spec.nodeName=<node> -o wide
@@ -92,7 +92,7 @@ maintenance.
 Confirm the arithmetic directly:
 
 ```bash
-kubectl get pdb <name> -n <namespace> \
+kubectl get pdb <name> --namespace <namespace> \
   -o custom-columns='NAME:.metadata.name,MIN:.spec.minAvailable,HEALTHY:.status.currentHealthy,DESIRED:.status.desiredHealthy,ALLOWED:.status.disruptionsAllowed'
 ```
 
@@ -113,16 +113,16 @@ cluster-wide, including during unrelated future maintenance. `--disable-eviction
 bypasses every PDB on the node at once and can take a service to zero replicas.
 
 ## Human Approval Required
-- `kubectl scale deployment/<name> --replicas=<n+1> -n <namespace>`
-- `kubectl patch pdb <name> -n <ns> --type=merge -p '{"spec":{"minAvailable":<n>}}'`
+- `kubectl scale deployment/<name> --replicas=<n+1> --namespace <namespace>`
+- `kubectl patch pdb <name> --namespace <ns> --type=merge -p '{"spec":{"minAvailable":<n>}}'`
 - `kubectl drain <node> --delete-emptydir-data --ignore-daemonsets` — **DESTRUCTIVE**, evicts every pod on the node
 - `kubectl drain <node> --disable-eviction` — **DESTRUCTIVE**, bypasses PDBs entirely
-- `kubectl delete pdb <name> -n <namespace>` — **DESTRUCTIVE**, removes availability protection
+- `kubectl delete pdb <name> --namespace <namespace>` — **DESTRUCTIVE**, removes availability protection
 
 ## Verification
 ```bash
-kubectl get pdb <name> -n <namespace>
-kubectl get pods -n <namespace> -l <selector> -o wide
+kubectl get pdb <name> --namespace <namespace>
+kubectl get pods --namespace <namespace> -l <selector> -o wide
 ```
 Verified when `ALLOWED DISRUPTIONS` is at least 1 and the drain proceeds. Confirm
 the workload still has its intended replica count afterwards — a drain that

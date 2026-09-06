@@ -43,7 +43,7 @@ commands:
     official_docs: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/"
 
   - name: "describe-pod"
-    command: "kubectl describe pod <pod-name> -n <namespace>"
+    command: "kubectl describe pod <pod-name> --namespace <namespace>"
     category: "pods"
     purpose: "Fetch detailed pod spec, conditions, volume mounts, container status, and recent events"
     safety: "SAFE_READ"
@@ -57,7 +57,7 @@ commands:
     official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_describe/"
 
   - name: "get-pod-logs-current"
-    command: "kubectl logs <pod-name> -n <namespace> --all-containers --tail=200"
+    command: "kubectl logs <pod-name> --namespace <namespace> --all-containers --tail=200"
     category: "pods"
     purpose: "Fetch recent logs for all containers in pod"
     safety: "SAFE_READ"
@@ -71,7 +71,7 @@ commands:
     official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/"
 
   - name: "get-pod-logs-previous"
-    command: "kubectl logs <pod-name> -n <namespace> --previous --all-containers"
+    command: "kubectl logs <pod-name> --namespace <namespace> --previous --all-containers"
     category: "pods"
     purpose: "Fetch logs from previous container instance prior to crash (CrashLoopBackOff diagnosis)"
     safety: "SAFE_READ"
@@ -97,7 +97,7 @@ commands:
     official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/"
 
   - name: "top-pods"
-    command: "kubectl top pod -n <namespace> --containers"
+    command: "kubectl top pod --namespace <namespace> --containers"
     category: "metrics"
     purpose: "Display CPU and Memory consumption for pod containers"
     safety: "SAFE_DIAGNOSTIC"
@@ -110,7 +110,7 @@ commands:
     official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_top/"
 
   - name: "rollout-restart-deployment"
-    command: "kubectl rollout restart deployment/<deployment-name> -n <namespace>"
+    command: "kubectl rollout restart deployment/<deployment-name> --namespace <namespace>"
     category: "deployments"
     purpose: "Trigger rolling restart of deployment pods"
     safety: "HUMAN_APPROVAL_REQUIRED"
@@ -124,7 +124,7 @@ commands:
     official_docs: "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_rollout/"
 
   - name: "delete-pod-force"
-    command: "kubectl delete pod <pod-name> -n <namespace> --force --grace-period=0"
+    command: "kubectl delete pod <pod-name> --namespace <namespace> --force --grace-period=0"
     category: "pods"
     purpose: "Forcefully terminate pod without waiting for graceful shutdown"
     safety: "DESTRUCTIVE"

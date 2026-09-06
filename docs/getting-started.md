@@ -16,6 +16,31 @@ command -v kind || echo "kind missing (optional for local cluster testing)"
 command -v python3 || echo "python3 missing"
 ```
 
+Clone the repository and run its validation suite from the checkout:
+
+```bash
+git clone https://github.com/flesrusselle/k8s-ai-troubleshooter.git
+cd k8s-ai-troubleshooter
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip pyyaml
+python3 scripts/validate.py
+python3 -m unittest discover -s tests -q
+```
+
+The project does not currently install a `k8s-ai` executable. Its local
+collector and MCP adapter use the `kubectl` context of the account running
+them. Verify the target context and permissions before an investigation:
+
+```bash
+kubectl config current-context
+kubectl auth can-i get pods --all-namespaces
+```
+
+Use the read-only RBAC manifests in
+[`manifests/rbac/README.md`](../manifests/rbac/README.md) when the
+investigation should not run under a personal or cluster-admin identity.
+
 ### Installation Options
 
 - **kubectl**: See [Official kubectl installation guide](https://kubernetes.io/docs/tasks/tools/).
@@ -37,3 +62,22 @@ An AI coding assistant or agent (e.g. Antigravity, Claude Code, Cursor, MCP Clie
 - The AI loads `integrations/antigravity/SKILL.md` or `.cursorrules`.
 - The AI executes `SAFE_READ` commands directly.
 - The AI presents evidence and stops for human approval before suggesting any state-changing remediation (`rollout restart`, `patch`, `apply`, `delete`).
+
+### Collect a report-ready evidence bundle
+
+```bash
+# Preview first; this runs no commands against the cluster.
+python3 scripts/collect.py --dry-run --namespace prod
+
+# Collect redacted evidence for one namespace.
+python3 scripts/collect.py --namespace prod --output evidence-bundle
+
+# Or collect cluster-wide evidence for an incident.
+python3 scripts/collect.py --all-namespaces --output incident-2026-09-06
+```
+
+Give the resulting directory to an assistant with a request for an incident
+report containing observed facts, an evidence-backed timeline, ranked root-cause
+hypotheses, confidence, unknowns, recommended remediation, blast radius,
+rollback, and verification steps. The assistant should cite the bundle files
+it used and distinguish facts from inferences.

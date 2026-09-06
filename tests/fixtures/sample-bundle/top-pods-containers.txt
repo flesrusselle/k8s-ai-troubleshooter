@@ -1,0 +1,4 @@
+production   payment-service-7d9f8b-xk2lp   payment   450m   1800Mi
+production   auth-service-6c8b9d-mn4qr      auth      92m    200Mi
+kube-system  metrics-server-8d9f7b-ab1cd    metrics   8m     50Mi
+staging      worker-image-5f7d8c-pq3rs      worker    200m   512Mi

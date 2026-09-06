@@ -5,7 +5,7 @@ Diagnose an ArgoCD `Application` that will not reach `Synced`/`Healthy`, or
 that reports `Synced` while the workload it manages is not actually working.
 
 ## When to Use
-`kubectl get applications.argoproj.io -n argocd` shows anything other than
+`kubectl get applications.argoproj.io --namespace argocd` shows anything other than
 `Synced` + `Healthy`, or a deploy that "went through in Git" never appears in
 the cluster.
 
@@ -26,20 +26,20 @@ together is most of the diagnosis:
 
 ```bash
 # 1. The two axes, side by side
-kubectl get application <app> -n argocd \
+kubectl get application <app> --namespace argocd \
   -o jsonpath='{.status.sync.status}{"\t"}{.status.health.status}{"\n"}'
 
 # 2. Why comparison or sync failed, in ArgoCD's own words
-kubectl get application <app> -n argocd \
+kubectl get application <app> --namespace argocd \
   -o jsonpath='{range .status.conditions[*]}{.type}{": "}{.message}{"\n"}{end}'
 
 # 3. The last sync operation's own report
-kubectl get application <app> -n argocd \
+kubectl get application <app> --namespace argocd \
   -o jsonpath='{.status.operationState.phase}{"\t"}{.status.operationState.message}{"\n"}'
 
 # 4. The controllers that actually do the work
-kubectl logs -n argocd deployment/argocd-application-controller --tail=100
-kubectl logs -n argocd deployment/argocd-repo-server --tail=100
+kubectl logs --namespace argocd deployment/argocd-application-controller --tail=100
+kubectl logs --namespace argocd deployment/argocd-repo-server --tail=100
 ```
 
 ## Detailed Investigation
@@ -119,7 +119,7 @@ Confirm a live-field-diff hypothesis by diffing the specific field ArgoCD
 reports as different against what actually manages it:
 
 ```bash
-kubectl get application <app> -n argocd -o jsonpath='{.status.resources}{"\n"}' \
+kubectl get application <app> --namespace argocd -o jsonpath='{.status.resources}{"\n"}' \
   | python3 -m json.tool
 ```
 
@@ -143,13 +143,13 @@ mid-run, which may leave a PreSync job partially applied.
 
 ## Human Approval Required
 - `argocd app sync <app>` / annotating the Application to force a sync
-- `kubectl patch application <app> -n argocd --type=merge -p '{"spec":{"syncPolicy":{...}}}'`
+- `kubectl patch application <app> --namespace argocd --type=merge -p '{"spec":{"syncPolicy":{...}}}'`
 - Terminating an in-progress sync operation
 - `argocd app delete <app>` — **DESTRUCTIVE**, and with cascade enabled deletes every resource it manages
 
 ## Verification
 ```bash
-kubectl get application <app> -n argocd \
+kubectl get application <app> --namespace argocd \
   -o jsonpath='{.status.sync.status}{"\t"}{.status.health.status}{"\n"}'
 ```
 Verified when this reads `Synced` and `Healthy` together, and stays that way

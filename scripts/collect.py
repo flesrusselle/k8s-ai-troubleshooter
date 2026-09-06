@@ -36,6 +36,7 @@ directory does.
 import argparse
 import datetime
 import json
+import shlex
 import shutil
 import subprocess
 import sys
@@ -50,39 +51,39 @@ import session_log  # noqa: E402
 ALLOWED_TIERS = {SAFE_READ, SAFE_DIAGNOSTIC}
 
 #: Commands that describe the cluster as a whole. `{ns_flag}` expands to
-#: `-n <namespace>` or `--all-namespaces`.
+#: `--namespace <namespace>` or `--all-namespaces`.
 CLUSTER_PLAN = [
     ("cluster-info", "kubectl cluster-info"),
-    ("version", "kubectl version -o json"),
-    ("nodes", "kubectl get nodes -o wide"),
+    ("version", "kubectl version --output json"),
+    ("nodes", "kubectl get nodes --output wide"),
     ("nodes-detail", "kubectl describe nodes"),
     ("api-resources", "kubectl api-resources --verbs=list -o name"),
     ("namespaces", "kubectl get namespaces"),
-    ("storageclasses", "kubectl get storageclass -o wide"),
-    ("persistentvolumes", "kubectl get pv -o wide"),
+    ("storageclasses", "kubectl get storageclass --output wide"),
+    ("persistentvolumes", "kubectl get pv --output wide"),
 ]
 
 #: Commands scoped to the namespace under investigation.
 NAMESPACE_PLAN = [
-    ("pods", "kubectl get pods {ns_flag} -o wide"),
-    ("pods-yaml", "kubectl get pods {ns_flag} -o yaml"),
+    ("pods", "kubectl get pods {ns_flag} --output wide"),
+    ("pods-yaml", "kubectl get pods {ns_flag} --output yaml"),
     ("events", "kubectl get events {ns_flag} --sort-by=.lastTimestamp"),
-    ("deployments", "kubectl get deployments {ns_flag} -o wide"),
-    ("replicasets", "kubectl get replicasets {ns_flag} -o wide"),
-    ("statefulsets", "kubectl get statefulsets {ns_flag} -o wide"),
-    ("daemonsets", "kubectl get daemonsets {ns_flag} -o wide"),
-    ("jobs", "kubectl get jobs {ns_flag} -o wide"),
-    ("cronjobs", "kubectl get cronjobs {ns_flag} -o wide"),
-    ("services", "kubectl get services {ns_flag} -o wide"),
+    ("deployments", "kubectl get deployments {ns_flag} --output wide"),
+    ("replicasets", "kubectl get replicasets {ns_flag} --output wide"),
+    ("statefulsets", "kubectl get statefulsets {ns_flag} --output wide"),
+    ("daemonsets", "kubectl get daemonsets {ns_flag} --output wide"),
+    ("jobs", "kubectl get jobs {ns_flag} --output wide"),
+    ("cronjobs", "kubectl get cronjobs {ns_flag} --output wide"),
+    ("services", "kubectl get services {ns_flag} --output wide"),
     ("endpoints", "kubectl get endpoints {ns_flag}"),
-    ("ingress", "kubectl get ingress {ns_flag} -o wide"),
+    ("ingress", "kubectl get ingress {ns_flag} --output wide"),
     ("networkpolicies", "kubectl get networkpolicies {ns_flag}"),
-    ("pvc", "kubectl get pvc {ns_flag} -o wide"),
+    ("pvc", "kubectl get pvc {ns_flag} --output wide"),
     ("configmaps", "kubectl get configmaps {ns_flag}"),
     ("secrets-metadata", "kubectl get secrets {ns_flag}"),
-    ("resourcequotas", "kubectl get resourcequota {ns_flag} -o yaml"),
-    ("limitranges", "kubectl get limitrange {ns_flag} -o yaml"),
-    ("hpa", "kubectl get hpa {ns_flag} -o wide"),
+    ("resourcequotas", "kubectl get resourcequota {ns_flag} --output yaml"),
+    ("limitranges", "kubectl get limitrange {ns_flag} --output yaml"),
+    ("hpa", "kubectl get hpa {ns_flag} --output wide"),
     ("pdb", "kubectl get poddisruptionbudget {ns_flag}"),
 ]
 
@@ -95,9 +96,9 @@ OPTIONAL_PLAN = [
 
 #: Per-failing-pod follow-ups. `{pod}` and `{ns}` are substituted per pod.
 POD_PLAN = [
-    ("describe", "kubectl describe pod {pod} -n {ns}"),
-    ("logs", "kubectl logs {pod} -n {ns} --all-containers --tail=200"),
-    ("logs-previous", "kubectl logs {pod} -n {ns} --all-containers --previous --tail=200"),
+    ("describe", "kubectl describe pod {pod} --namespace {ns}"),
+    ("logs", "kubectl logs {pod} --namespace {ns} --all-containers --tail=200"),
+    ("logs-previous", "kubectl logs {pod} --namespace {ns} --all-containers --previous --tail=200"),
 ]
 
 #: Pod states worth pulling logs for.
@@ -128,7 +129,7 @@ def build_plan(namespace=None, all_namespaces=False, include_optional=True):
     if all_namespaces:
         ns_flag = "--all-namespaces"
     elif namespace:
-        ns_flag = f"-n {namespace}"
+        ns_flag = f"--namespace {namespace}"
     else:
         ns_flag = ""
 
@@ -144,7 +145,7 @@ def run_command(command, timeout=60):
     assert_safe(command)
     try:
         result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=timeout,
+            shlex.split(command), capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         return False, f"[collector] command timed out after {timeout}s: {command}"
@@ -223,7 +224,7 @@ def find_unhealthy_pods(namespace=None, all_namespaces=False):
     if all_namespaces:
         command = "kubectl get pods --all-namespaces -o json"
     elif namespace:
-        command = f"kubectl get pods -n {namespace} -o json"
+        command = f"kubectl get pods --namespace {namespace} -o json"
     else:
         command = "kubectl get pods -o json"
 
@@ -331,12 +332,14 @@ def collect(out_dir, namespace=None, all_namespaces=False, include_optional=True
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
+        add_help=False,
         description="Collect a redacted, read-only Kubernetes evidence bundle for AI analysis.",
     )
-    parser.add_argument("-n", "--namespace", help="Namespace to investigate.")
-    parser.add_argument("-A", "--all-namespaces", action="store_true",
+    parser.add_argument("--help", action="help", help="Show this help message and exit.")
+    parser.add_argument("--namespace", help="Namespace to investigate.")
+    parser.add_argument("--all-namespaces", action="store_true",
                         help="Collect across every namespace.")
-    parser.add_argument("-o", "--output", default="evidence-bundle",
+    parser.add_argument("--output", default="evidence-bundle",
                         help="Output directory (default: evidence-bundle).")
     parser.add_argument("--no-pods", action="store_true",
                         help="Skip per-pod describe and logs.")

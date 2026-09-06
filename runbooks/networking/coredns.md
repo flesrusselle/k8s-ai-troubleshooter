@@ -17,13 +17,13 @@ Triggered when workloads fail to resolve internal `.cluster.local` domain names 
 
 ```bash
 # 1. Check CoreDNS pod status in kube-system
-kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide
+kubectl get pods --namespace kube-system -l k8s-app=kube-dns -o wide
 
 # 2. Check CoreDNS Service and Endpoint status
-kubectl get svc,endpoints -n kube-system -l k8s-app=kube-dns
+kubectl get svc,endpoints --namespace kube-system -l k8s-app=kube-dns
 
 # 3. Fetch CoreDNS container logs
-kubectl logs -n kube-system -l k8s-app=kube-dns --tail=100
+kubectl logs --namespace kube-system -l k8s-app=kube-dns --tail=100
 ```
 
 ## Detailed Investigation
@@ -33,13 +33,13 @@ Follow the deterministic CoreDNS diagnostic path:
 ```text
 DNS Resolution Failure
        ↓
-Check CoreDNS Pod Status (`kubectl get pods -n kube-system -l k8s-app=kube-dns`)
+Check CoreDNS Pod Status (`kubectl get pods --namespace kube-system -l k8s-app=kube-dns`)
        ↓
-Check kube-dns Service & Endpoints (`kubectl get endpoints -n kube-system`)
+Check kube-dns Service & Endpoints (`kubectl get endpoints --namespace kube-system`)
        ↓
-Check CoreDNS Logs (`kubectl logs -n kube-system -l k8s-app=kube-dns`)
+Check CoreDNS Logs (`kubectl logs --namespace kube-system -l k8s-app=kube-dns`)
        ↓
-Check CoreDNS ConfigMap (`kubectl get configmap coredns -n kube-system -o yaml`)
+Check CoreDNS ConfigMap (`kubectl get configmap coredns --namespace kube-system -o yaml`)
        ↓
 Test DNS from disposable diagnostic environment
 ```
@@ -76,11 +76,11 @@ scaling it affects name resolution for every pod — including ones that are
 currently healthy. Treat any CoreDNS change as cluster-wide.
 
 ## Human Approval Required
-- `kubectl rollout restart deployment coredns -n kube-system` (**HUMAN APPROVAL REQUIRED**)
+- `kubectl rollout restart deployment coredns --namespace kube-system` (**HUMAN APPROVAL REQUIRED**)
 
 ## Verification
 ```bash
-kubectl run dnscheck --rm -it --restart=Never --image=busybox:1.36 -n <namespace> \
+kubectl run dnscheck --rm -it --restart=Never --image=busybox:1.36 --namespace <namespace> \
   -- nslookup kubernetes.default.svc.cluster.local
 ```
 Verified when resolution succeeds from a pod in the affected namespace, not just

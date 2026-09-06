@@ -1,0 +1,126 @@
+name: Helm, UI & Compose Validation
+
+on:
+  pull_request:
+    paths:
+      - 'helm/**'
+      - 'ui/**'
+      - 'docker-compose.yml'
+      - '.env.example'
+      - 'Dockerfile'
+      - '.github/workflows/helm-ui.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'helm/**'
+      - 'ui/**'
+      - 'docker-compose.yml'
+      - '.env.example'
+      - 'Dockerfile'
+      - '.github/workflows/helm-ui.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  helm-validation:
+    name: Lint & Template Helm Chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Lint Chart
+        run: |
+          helm lint ./helm/k8s-ai-troubleshooter
+
+      - name: Render Default Templates
+        run: |
+          helm template test-default ./helm/k8s-ai-troubleshooter
+
+      - name: Render with CronJob Enabled
+        run: |
+          helm template test-cronjob ./helm/k8s-ai-troubleshooter \
+            --set cronJob.enabled=true
+
+      - name: Render with UI Dashboard Enabled
+        run: |
+          helm template test-ui ./helm/k8s-ai-troubleshooter \
+            --set ui.enabled=true
+
+      - name: Render Full Stack (CronJob + UI + Persistence + Ingress)
+        run: |
+          helm template test-full ./helm/k8s-ai-troubleshooter \
+            --set cronJob.enabled=true \
+            --set persistence.enabled=true \
+            --set ui.enabled=true \
+            --set ui.ingress.enabled=true \
+            --set ui.ingress.host=troubleshooter.example.com
+
+      - name: Verify Schema Enforcement on Invalid Values
+        run: |
+          if helm template test-invalid ./helm/k8s-ai-troubleshooter --set image.pullPolicy=AlwaysInvalid 2>/dev/null; then
+            echo "Expected schema validation failure for invalid pullPolicy, but command succeeded!"
+            exit 1
+          else
+            echo "Schema successfully rejected invalid value."
+          fi
+
+  compose-validation:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Default Compose Configuration
+        run: |
+          docker compose config
+
+      - name: Validate Compose with .env.example
+        run: |
+          cp .env.example .env
+          docker compose config
+
+  ui-and-assets-validation:
+    name: Validate UI Assets & Sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Mock Sessions JSON
+        run: |
+          python -m json.tool ui/mock-sessions.json > /dev/null
+          echo "Mock sessions JSON is valid."
+
+      - name: Validate HTML Structure
+        run: |
+          python -c "
+          import html.parser
+          class Parser(html.parser.HTMLParser): pass
+          with open('ui/index.html', 'r', encoding='utf-8') as f:
+              Parser().feed(f.read())
+          print('HTML parsed successfully.')
+          "
+
+      - name: Ensure Helm Static UI Assets are Synchronized
+        run: |
+          diff -u ui/index.html helm/k8s-ai-troubleshooter/files/ui/index.html
+          diff -u ui/index.css helm/k8s-ai-troubleshooter/files/ui/index.css
+          diff -u ui/mock-sessions.json helm/k8s-ai-troubleshooter/files/ui/mock-sessions.json
+          echo "All UI assets in Helm files/ui are in sync with ui/."

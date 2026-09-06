@@ -1,0 +1,14 @@
+# Gitleaks configuration for k8s-ai-troubleshooter
+title = "k8s-ai-troubleshooter gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow test fixtures and mock strings specifically used to test the regex redactor"
+paths = [
+  '''tests/test_redact\.py''',
+  '''tests/test_safety\.py''',
+  '''scripts/redact\.py''',
+  '''examples/.*''',
+]

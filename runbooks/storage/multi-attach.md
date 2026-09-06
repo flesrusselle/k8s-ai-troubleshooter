@@ -21,7 +21,7 @@ exclusively attached to one node and can't be attached to another`.
 
 ```bash
 # 1. The error and its timing
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <pod-name> --namespace <namespace>
 
 # 2. Where the volume is currently attached
 kubectl get volumeattachment | grep <pv-name>
@@ -30,7 +30,7 @@ kubectl get volumeattachment | grep <pv-name>
 kubectl get pods -A -o wide | grep <pvc-name>
 
 # 4. Access mode — this is the root of the constraint
-kubectl get pvc <claim> -n <namespace> \
+kubectl get pvc <claim> --namespace <namespace> \
   -o jsonpath='{.spec.accessModes}{"\t"}{.spec.volumeName}{"\n"}'
 ```
 
@@ -115,14 +115,14 @@ repository that can destroy data rather than availability. Changing strategy to
 `Recreate` means every future deploy has downtime by design.
 
 ## Human Approval Required
-- `kubectl delete pod <stuck-pod> -n <namespace>` — **DESTRUCTIVE**, and forcing it can risk data corruption if the old writer is still alive
-- `kubectl patch deployment <name> -n <ns> -p '{"spec":{"strategy":{"type":"Recreate"}}}'`
+- `kubectl delete pod <stuck-pod> --namespace <namespace>` — **DESTRUCTIVE**, and forcing it can risk data corruption if the old writer is still alive
+- `kubectl patch deployment <name> --namespace <ns> -p '{"spec":{"strategy":{"type":"Recreate"}}}'`
 - `kubectl delete volumeattachment <name>` — **DESTRUCTIVE**, only for a confirmed-dead node; deleting a live attachment can corrupt the filesystem
 
 ## Verification
 ```bash
 kubectl get volumeattachment | grep <pv-name>
-kubectl get pod <pod-name> -n <namespace> -o wide
+kubectl get pod <pod-name> --namespace <namespace> -o wide
 ```
 Verified when exactly one `VolumeAttachment` exists for the volume, naming the
 node the running pod is on, and the pod is `Running`. Two attachments, or one

@@ -17,7 +17,7 @@ Triggered when pod events indicate `FailedMount` or `VolumeAttachment` timeouts.
 
 ```bash
 # 1. Inspect pod events for mount errors
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <pod-name> --namespace <namespace>
 
 # 2. Inspect active VolumeAttachments
 kubectl get volumeattachments
@@ -30,7 +30,7 @@ kubectl get volumeattachments
 2. **Check Node CSI Plugin**:
    Verify CSI node daemon set pods are healthy:
    ```bash
-   kubectl get pods -n kube-system -l app=csi-node || true
+   kubectl get pods --namespace kube-system -l app=csi-node || true
    ```
 
 ## Decision Tree
@@ -64,7 +64,7 @@ stateful workloads, may require the volume to detach cleanly first.
 
 ## Verification
 ```bash
-kubectl describe pod <pod-name> -n <namespace> | grep -A5 -E 'Volumes|Events'
+kubectl describe pod <pod-name> --namespace <namespace> | grep -A5 -E 'Volumes|Events'
 ```
 Verified when the pod leaves `ContainerCreating` and no `FailedMount` events
 appear for a period longer than the mount timeout — roughly two minutes. Mount

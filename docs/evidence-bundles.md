@@ -32,7 +32,7 @@ Filters secrets out of text while preserving everything useful for diagnosis.
 
 ```bash
 # Filter a single command
-kubectl describe pod api-7d9f -n prod | python3 scripts/redact.py
+kubectl describe pod api-7d9f --namespace prod | python3 scripts/redact.py
 
 # Redact files in place
 python3 scripts/redact.py bundle/*.txt --stats
@@ -99,13 +99,13 @@ Runs the read-only diagnostic set, redacts it, and writes a structured bundle.
 
 ```bash
 # One namespace
-python3 scripts/collect.py -n prod
+python3 scripts/collect.py --namespace prod
 
 # Whole cluster
-python3 scripts/collect.py --all-namespaces -o incident-2026-08-10
+python3 scripts/collect.py --all-namespaces --output incident-2026-08-10
 
 # Show what would run, and how each command classifies, without running anything
-python3 scripts/collect.py --dry-run -n prod
+python3 scripts/collect.py --dry-run --namespace prod
 ```
 
 ### Why bundle at all

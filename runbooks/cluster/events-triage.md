@@ -39,7 +39,7 @@ for reason, n in counts.most_common(15): print(f'{n:5}  {reason}')
 "
 
 # 4. Events for one object
-kubectl get events -n <namespace> --field-selector involvedObject.name=<name>
+kubectl get events --namespace <namespace> --field-selector involvedObject.name=<name>
 ```
 
 ## Detailed Investigation

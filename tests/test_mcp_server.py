@@ -124,6 +124,10 @@ class TestKnowledgeTools(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_decision_tree("nope")
 
+    def test_get_decision_tree_rejects_path_traversal(self):
+        with self.assertRaises(ValueError):
+            get_decision_tree("../README")
+
     def test_tool_errors_are_reported_in_band(self):
         """isError in the result, not a JSON-RPC error, so the model sees it."""
         payload, is_error = None, None
@@ -149,7 +153,7 @@ class TestSafetyTool(unittest.TestCase):
         self.assertFalse(result["automatic_execution_allowed"])
 
     def test_read_command_is_auto_executable(self):
-        result = query_command_safety("kubectl get pods -n prod")
+        result = query_command_safety("kubectl get pods --namespace prod")
         self.assertEqual(result["safety"], "SAFE_READ")
         self.assertTrue(result["automatic_execution_allowed"])
 

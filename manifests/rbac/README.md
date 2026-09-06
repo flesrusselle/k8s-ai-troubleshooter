@@ -25,7 +25,7 @@ Generate a kubeconfig scoped to that identity (Kubernetes 1.24+, where
 ServiceAccount tokens are no longer auto-created as long-lived Secrets):
 
 ```bash
-kubectl create token k8s-ai-troubleshooter -n k8s-ai-troubleshooter --duration=8h
+kubectl create token k8s-ai-troubleshooter --namespace k8s-ai-troubleshooter --duration=8h
 ```
 
 Use the resulting token as a bearer token in a kubeconfig pointed at your

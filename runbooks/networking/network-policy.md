@@ -17,10 +17,10 @@ Triggered when pods can resolve DNS but cannot establish TCP/UDP socket connecti
 
 ```bash
 # 1. List active NetworkPolicies in namespace
-kubectl get networkpolicies -n <namespace>
+kubectl get networkpolicies --namespace <namespace>
 
 # 2. Inspect ingress/egress spec rules for policy
-kubectl get networkpolicy <policy-name> -n <namespace> -o yaml
+kubectl get networkpolicy <policy-name> --namespace <namespace> -o yaml
 ```
 
 ## Detailed Investigation
@@ -61,7 +61,7 @@ security boundary, not only a connectivity setting.
 
 ## Verification
 ```bash
-kubectl run nettest --rm -it --restart=Never --image=busybox:1.36 -n <namespace> \
+kubectl run nettest --rm -it --restart=Never --image=busybox:1.36 --namespace <namespace> \
   -- wget -qO- --timeout=5 http://<service>.<namespace>.svc.cluster.local
 ```
 Verified when the intended traffic succeeds **and** traffic that should still be

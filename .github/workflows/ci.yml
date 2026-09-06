@@ -6,28 +6,76 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  validate-and-test:
+  security-scan:
+    name: Security & Secret Scan (Gitleaks & Bandit)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Security Linters
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit
+
+      - name: Run Bandit Security Analysis
+        run: |
+          bandit -r scripts/ k8s_ai_core/ -ll --exclude "tests/"
+
+  validate-and-test:
+    name: Structural Validation & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyyaml jsonschema
+          pip install pyyaml jsonschema requests
 
       - name: Run Repository Structural Validation
         run: |
           python scripts/validate.py
+
+      - name: Validate UI Assets & Helm Sync
+        run: |
+          diff -u ui/index.html helm/k8s-ai-troubleshooter/files/ui/index.html
+          diff -u ui/index.css helm/k8s-ai-troubleshooter/files/ui/index.css
+          diff -u ui/mock-sessions.json helm/k8s-ai-troubleshooter/files/ui/mock-sessions.json
+
+      - name: Verify CLI Commands (triage, export, notify)
+        run: |
+          python scripts/k8s_ai.py triage --bundle tests/fixtures/sample-bundle --json > /tmp/triage-report.json
+          python -c "import json; r=json.load(open('/tmp/triage-report.json')); assert r['status'] == 'CRITICAL'; assert len(r['resource_spikes']) >= 1; assert len(r['hypotheses']) >= 1"
+          python scripts/k8s_ai.py export --bundle tests/fixtures/sample-bundle --output /tmp/test-bundle.tar.gz
+          tar -tzf /tmp/test-bundle.tar.gz | grep "triage-report.json"
+          python scripts/k8s_ai.py triage --bundle tests/fixtures/sample-bundle --notify-target slack --notify-dry-run
 
       - name: Run Python Test Suite
         run: |
@@ -39,15 +87,16 @@ jobs:
           python scripts/generate_release_preview.py
 
   kind-integration-tests:
+    name: Kind Cluster Integration Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install Python Dependencies
         run: |
@@ -59,6 +108,11 @@ jobs:
         with:
           cluster_name: k8s-ai-troubleshooter-ci
           wait: 120s
+
+      - name: Pre-pull and load test images into kind
+        run: |
+          docker pull busybox:1.36
+          kind load docker-image busybox:1.36 --name k8s-ai-troubleshooter-ci
 
       - name: Run kind-based integration tests
         run: |

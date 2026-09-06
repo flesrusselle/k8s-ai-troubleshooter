@@ -17,10 +17,10 @@ Triggered when pod status displays `ImagePullBackOff` or `ErrImagePull`.
 
 ```bash
 # 1. Fetch exact event logs explaining image pull failure
-kubectl describe pod <pod-name> -n <namespace>
+kubectl describe pod <pod-name> --namespace <namespace>
 
 # 2. Inspect configured container image string and imagePullSecrets
-kubectl get pod <pod-name> -n <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{" Image="}{.image}{"\n"}{end}{"imagePullSecrets="}{.spec.imagePullSecrets}'
+kubectl get pod <pod-name> --namespace <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{" Image="}{.image}{"\n"}{end}{"imagePullSecrets="}{.spec.imagePullSecrets}'
 ```
 
 ## Detailed Investigation
@@ -33,7 +33,7 @@ kubectl get pod <pod-name> -n <namespace> -o jsonpath='{range .spec.containers[*
 2. **Verify Secret Existence**:
    Check if the referenced `imagePullSecret` exists in the target namespace:
    ```bash
-   kubectl get secrets -n <namespace>
+   kubectl get secrets --namespace <namespace>
    ```
 
 ## Decision Tree
@@ -70,9 +70,9 @@ churn during an incident.
 
 ## Verification
 ```bash
-kubectl get pod <pod-name> -n <namespace> \
+kubectl get pod <pod-name> --namespace <namespace> \
   -o jsonpath='{.status.containerStatuses[*].state}{"\n"}'
-kubectl describe pod <pod-name> -n <namespace> | grep -E 'Pulled|Successfully'
+kubectl describe pod <pod-name> --namespace <namespace> | grep -E 'Pulled|Successfully'
 ```
 Verified when a `Successfully pulled image` event appears and the container
 reaches `running`. A `Pulled` event referencing a cached image does not prove

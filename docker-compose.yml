@@ -1,0 +1,38 @@
+services:
+  k8s-ai:
+    build:
+      context: .
+      args:
+        KUBECTL_VERSION: ${KUBECTL_VERSION:-v1.37.0}
+        HELM_VERSION: ${HELM_VERSION:-v4.2.4}
+    image: k8s-ai-troubleshooter:local
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+    volumes:
+      - evidence:/evidence
+      - ${KUBECONFIG:-~/.kube/config}:/tmp/kubeconfig:ro
+    environment:
+      KUBECONFIG: /tmp/kubeconfig
+      K8S_AI_TROUBLESHOOTER_SESSION_LOG: /evidence/sessions.jsonl
+    command:
+      - collect
+      - --namespace
+      - ${K8S_NAMESPACE:-default}
+      - --output
+      - /evidence/bundle
+      - --no-optional
+
+  ui:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./ui:/usr/share/nginx/html:ro
+      - evidence:/usr/share/nginx/html/evidence:ro
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  evidence:

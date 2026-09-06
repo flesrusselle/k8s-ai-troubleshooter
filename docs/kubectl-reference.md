@@ -17,7 +17,7 @@ kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.m
 kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{range .status.containerStatuses[*]}{.name}{" restarts="}{.restartCount}{"\n"}{end}{end}'
 
 # Extract resource limits & requests for a specific pod
-kubectl get pod <pod-name> -n <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{" CPU limit="}{.resources.limits.cpu}{" Mem limit="}{.resources.limits.memory}{"\n"}{end}'
+kubectl get pod <pod-name> --namespace <namespace> -o jsonpath='{range .spec.containers[*]}{.name}{" CPU limit="}{.resources.limits.cpu}{" Mem limit="}{.resources.limits.memory}{"\n"}{end}'
 ```
 
 ---

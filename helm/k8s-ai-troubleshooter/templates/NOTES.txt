@@ -1,0 +1,88 @@
+╔══════════════════════════════════════════════════════════╗
+║          k8s-ai-troubleshooter — Installation Notes      ║
+╚══════════════════════════════════════════════════════════╝
+
+Chart version : {{ .Chart.Version }}
+App version   : {{ .Chart.AppVersion }}
+Release       : {{ .Release.Name }}
+Namespace     : {{ .Release.Namespace }}
+
+──────────────────────────────────────────────────────────
+CRONJOB STATUS
+──────────────────────────────────────────────────────────
+{{- if .Values.cronJob.enabled }}
+✅  CronJob is ENABLED.
+    Schedule : {{ .Values.cronJob.schedule }}
+    The collector will run automatically on this schedule.
+
+    To watch job runs:
+      kubectl get jobs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+    To view the latest run logs:
+      kubectl logs -n {{ .Release.Namespace }} \
+        $(kubectl get pod -n {{ .Release.Namespace }} \
+          -l app.kubernetes.io/instance={{ .Release.Name }} \
+          --sort-by=.metadata.creationTimestamp -o name | tail -1)
+{{- else }}
+⚠️  CronJob is DISABLED (cronJob.enabled=false).
+
+    To enable it, upgrade the release with:
+      helm upgrade {{ .Release.Name }} k8s-ai-troubleshooter \
+        --set cronJob.enabled=true \
+        --set cronJob.schedule="0 * * * *"
+
+    To run a one-shot job immediately:
+      kubectl create job --from=cronjob/{{ include "k8s-ai-troubleshooter.fullname" . }} \
+        {{ include "k8s-ai-troubleshooter.fullname" . }}-manual \
+        -n {{ .Release.Namespace }}
+{{- end }}
+
+──────────────────────────────────────────────────────────
+PERSISTENCE
+──────────────────────────────────────────────────────────
+{{- if .Values.persistence.enabled }}
+✅  Persistence is ENABLED.
+    Evidence bundles are stored in PVC: {{ include "k8s-ai-troubleshooter.fullname" . }}-evidence
+    Size: {{ .Values.persistence.size }}
+{{- else }}
+⚠️  Persistence is DISABLED. Evidence bundles use emptyDir and
+    will be lost when the pod terminates.
+
+    To enable persistent storage:
+      helm upgrade {{ .Release.Name }} k8s-ai-troubleshooter \
+        --set persistence.enabled=true \
+        --set persistence.size=5Gi
+{{- end }}
+
+──────────────────────────────────────────────────────────
+RBAC
+──────────────────────────────────────────────────────────
+{{- if .Values.rbac.create }}
+✅  ClusterRole (read-only) and ClusterRoleBinding were created.
+    Secret access: {{ if .Values.rbac.allowSecretRead }}ENABLED (allowSecretRead=true){{ else }}DISABLED (allowSecretRead=false — recommended){{ end }}
+{{- else }}
+⚠️  RBAC resources were NOT created. Ensure the service account
+    {{ include "k8s-ai-troubleshooter.serviceAccountName" . }} has the required read permissions.
+{{- end }}
+
+──────────────────────────────────────────────────────────
+UI DASHBOARD
+──────────────────────────────────────────────────────────
+{{- if .Values.ui.enabled }}
+✅  UI Dashboard is ENABLED.
+    Service: {{ include "k8s-ai-troubleshooter.fullname" . }}-ui (port {{ .Values.ui.service.port }})
+
+    To access the dashboard locally:
+      kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "k8s-ai-troubleshooter.fullname" . }}-ui 8080:{{ .Values.ui.service.port }}
+      open http://localhost:8080
+{{- else }}
+ℹ️   UI Dashboard is DISABLED (ui.enabled=false).
+    To enable the Atlassian-style diagnostics dashboard:
+      helm upgrade {{ .Release.Name }} k8s-ai-troubleshooter \
+        --set ui.enabled=true
+{{- end }}
+
+──────────────────────────────────────────────────────────
+DOCUMENTATION
+──────────────────────────────────────────────────────────
+  README : https://github.com/example/k8s-ai-troubleshooter

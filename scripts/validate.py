@@ -58,7 +58,7 @@ def validate_runbooks():
 
 def validate_command_catalogs():
     commands_dir = REPO_ROOT / "commands"
-    for cat in ["kubectl.yaml", "helm.yaml"]:
+    for cat in ["kubectl.yaml", "helm.yaml", "kustomize.yaml"]:
         cat_path = commands_dir / cat
         if not cat_path.exists():
             raise FileNotFoundError(f"Missing command catalog: {cat_path}")

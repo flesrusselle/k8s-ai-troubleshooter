@@ -17,7 +17,7 @@ Triggered when a PVC is not bound or pods mounting storage remain in `Pending` p
 
 ```bash
 # 1. Fetch PVC status & events
-kubectl describe pvc <pvc-name> -n <namespace>
+kubectl describe pvc <pvc-name> --namespace <namespace>
 
 # 2. Check cluster StorageClasses
 kubectl get storageclass
@@ -70,7 +70,7 @@ reclaim policy is `Delete`.
 
 ## Verification
 ```bash
-kubectl get pvc <claim> -n <namespace>
+kubectl get pvc <claim> --namespace <namespace>
 ```
 Verified when `STATUS` reads `Bound` and the consuming pod leaves `Pending`.
 With `WaitForFirstConsumer`, a Pending PVC is expected until a pod schedules —

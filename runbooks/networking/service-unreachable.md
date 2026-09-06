@@ -24,17 +24,17 @@ fault and the remaining checks become unnecessary.
 
 ```bash
 # Hop 1 — does the Service resolve?
-kubectl run netcheck --rm -it --restart=Never --image=busybox:1.36 -n <namespace> \
+kubectl run netcheck --rm -it --restart=Never --image=busybox:1.36 --namespace <namespace> \
   -- nslookup <service>.<namespace>.svc.cluster.local
 
 # Hop 2 — does the Service have endpoints?
-kubectl get endpoints <service> -n <namespace>
+kubectl get endpoints <service> --namespace <namespace>
 
 # Hop 3 — are the endpoint pods ready?
-kubectl get pods -n <namespace> -l <service-selector> -o wide
+kubectl get pods --namespace <namespace> -l <service-selector> -o wide
 
 # Hop 4 — is anything listening on the target port?
-kubectl get service <service> -n <namespace> \
+kubectl get service <service> --namespace <namespace> \
   -o jsonpath='{.spec.ports[*].targetPort}{"\n"}'
 ```
 
@@ -102,8 +102,8 @@ Confirm the selector hypothesis by comparing what the Service asks for against
 what the pods carry:
 
 ```bash
-kubectl get service <service> -n <namespace> -o jsonpath='{.spec.selector}{"\n"}'
-kubectl get pods -n <namespace> --show-labels
+kubectl get service <service> --namespace <namespace> -o jsonpath='{.spec.selector}{"\n"}'
+kubectl get pods --namespace <namespace> --show-labels
 ```
 
 A selector key absent from the pod labels — or differing in case — fully explains
@@ -122,13 +122,13 @@ affect which pods receive traffic across the whole workload.
 
 ## Human Approval Required
 - `kubectl apply -f <corrected-service>.yaml`
-- `kubectl label pod <pod> <key>=<value> -n <namespace>`
-- `kubectl rollout restart deployment/<name> -n <namespace>`
+- `kubectl label pod <pod> <key>=<value> --namespace <namespace>`
+- `kubectl rollout restart deployment/<name> --namespace <namespace>`
 
 ## Verification
 ```bash
-kubectl get endpoints <service> -n <namespace>
-kubectl run netcheck --rm -it --restart=Never --image=busybox:1.36 -n <namespace> \
+kubectl get endpoints <service> --namespace <namespace>
+kubectl run netcheck --rm -it --restart=Never --image=busybox:1.36 --namespace <namespace> \
   -- wget -qO- --timeout=5 http://<service>.<namespace>.svc.cluster.local
 ```
 Verified when the request succeeds repeatedly. Repetition matters: with several

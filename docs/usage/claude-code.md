@@ -42,7 +42,7 @@ from many different repositories.
 Ask Claude directly:
 
 ```text
-What safety tier does `kubectl delete pod web-1 -n prod --force` fall into,
+What safety tier does `kubectl delete pod web-1 --namespace prod --force` fall into,
 and which runbook covers CrashLoopBackOff?
 ```
 
@@ -108,7 +108,7 @@ Do not use `--dangerously-skip-permissions` for cluster work.
 **Claude — step 1, scope.** Following `runbooks/triage.md`:
 
 ```bash
-kubectl get pods -n prod --field-selector=status.phase!=Running
+kubectl get pods --namespace prod --field-selector=status.phase!=Running
 ```
 ```text
 NAME                        READY   STATUS             RESTARTS      AGE
@@ -122,7 +122,7 @@ payments-api-7d9f4b-x2kql   0/1     CrashLoopBackOff   9 (30s ago)   14m
 **Step 2, exit code.**
 
 ```bash
-kubectl describe pod payments-api-7d9f4b-x2kql -n prod
+kubectl describe pod payments-api-7d9f4b-x2kql --namespace prod
 ```
 ```text
     Last State:     Terminated
@@ -139,7 +139,7 @@ kubectl describe pod payments-api-7d9f4b-x2kql -n prod
 **Step 3, the logs that matter.**
 
 ```bash
-kubectl logs payments-api-7d9f4b-x2kql -n prod --previous --all-containers
+kubectl logs payments-api-7d9f4b-x2kql --namespace prod --previous --all-containers
 ```
 ```text
 2026-08-10T01:14:03Z FATAL could not connect to database:
@@ -150,7 +150,7 @@ kubectl logs payments-api-7d9f4b-x2kql -n prod --previous --all-containers
 
 > ## Likely Root Cause
 > The pod cannot resolve `postgres-primary.prod.svc.cluster.local`. The Service
-> does not exist under that name — `kubectl get svc -n prod` lists
+> does not exist under that name — `kubectl get svc --namespace prod` lists
 > `postgres-primary-rw`, renamed by the operator upgrade 20 minutes before the
 > first crash.
 >
@@ -178,7 +178,7 @@ run `kubectl set env` unprompted. It stopped at the gate.
 For a large or unfamiliar cluster, collect once rather than command-by-command:
 
 ```bash
-python3 scripts/collect.py -n prod -o evidence-bundle
+python3 scripts/collect.py --namespace prod --output evidence-bundle
 ```
 
 ```text

@@ -30,18 +30,18 @@ kubectl get clusterissuer -o wide
 kubectl describe clusterissuer <name>
 
 # 2. The Certificate's own condition and reason
-kubectl describe certificate <name> -n <namespace>
+kubectl describe certificate <name> --namespace <namespace>
 
 # 3. Did a CertificateRequest even get approved?
-kubectl get certificaterequests -n <namespace>
-kubectl describe certificaterequest <name> -n <namespace>
+kubectl get certificaterequests --namespace <namespace>
+kubectl describe certificaterequest <name> --namespace <namespace>
 
 # 4. ACME-specific: Order and Challenge state
-kubectl get order,challenge -n <namespace>
-kubectl describe challenge <name> -n <namespace>
+kubectl get order,challenge --namespace <namespace>
+kubectl describe challenge <name> --namespace <namespace>
 
 # 5. cert-manager's own controller logs
-kubectl logs -n cert-manager deployment/cert-manager --tail=100
+kubectl logs --namespace cert-manager deployment/cert-manager --tail=100
 ```
 
 ## Detailed Investigation
@@ -148,12 +148,12 @@ clients for every certificate it subsequently issues.
 
 ## Human Approval Required
 - `kubectl apply -f <issuer-or-certificate>.yaml`
-- `kubectl delete certificaterequest <name> -n <namespace>` — **DESTRUCTIVE**, discards the in-flight request and forces cert-manager to create a new one
-- `kubectl delete secret <tls-secret> -n <namespace>` to force reissuance — **DESTRUCTIVE**, removes the currently served certificate before a replacement exists
+- `kubectl delete certificaterequest <name> --namespace <namespace>` — **DESTRUCTIVE**, discards the in-flight request and forces cert-manager to create a new one
+- `kubectl delete secret <tls-secret> --namespace <namespace>` to force reissuance — **DESTRUCTIVE**, removes the currently served certificate before a replacement exists
 
 ## Verification
 ```bash
-kubectl get certificate <name> -n <namespace> \
+kubectl get certificate <name> --namespace <namespace> \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{"\n"}'
 ```
 Verified when this reads `True` **and** the target Secret's `tls.crt` matches

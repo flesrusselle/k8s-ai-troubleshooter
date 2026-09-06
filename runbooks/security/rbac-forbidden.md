@@ -28,14 +28,14 @@ read a single RoleBinding:
 kubectl auth whoami
 
 # 2. Can I do the thing?
-kubectl auth can-i list pods -n <namespace>
+kubectl auth can-i list pods --namespace <namespace>
 
 # 3. Can a specific service account do it?
-kubectl auth can-i list pods -n <namespace> \
+kubectl auth can-i list pods --namespace <namespace> \
   --as=system:serviceaccount:<namespace>:<serviceaccount>
 
 # 4. Everything that identity can do here
-kubectl auth can-i --list -n <namespace> \
+kubectl auth can-i --list --namespace <namespace> \
   --as=system:serviceaccount:<namespace>:<serviceaccount>
 ```
 
@@ -78,9 +78,9 @@ Self-contained; `kubectl auth can-i --list` resolves most cases in one command.
 
 ## Evidence to Collect
 - The exact `Forbidden` message, unedited.
-- Output of `kubectl auth can-i --list --as=<identity> -n <namespace>`.
+- Output of `kubectl auth can-i --list --as=<identity> --namespace <namespace>`.
 - The pod's `serviceAccountName` (absent means `default`).
-- Roles and bindings in the namespace: `kubectl get role,rolebinding -n <ns>`.
+- Roles and bindings in the namespace: `kubectl get role,rolebinding --namespace <ns>`.
 - Whether the resource is namespaced: `kubectl api-resources --namespaced=true`.
 
 ## Root Cause Patterns
@@ -98,7 +98,7 @@ Self-contained; `kubectl auth can-i --list` resolves most cases in one command.
 Confirm by impersonating the identity and asserting the specific verb:
 
 ```bash
-kubectl auth can-i <verb> <resource> -n <namespace> \
+kubectl auth can-i <verb> <resource> --namespace <namespace> \
   --as=system:serviceaccount:<namespace>:<serviceaccount>
 ```
 
@@ -118,12 +118,12 @@ problem stops.
 
 ## Human Approval Required
 - `kubectl apply -f <role>.yaml`
-- `kubectl create rolebinding <name> --role=<role> --serviceaccount=<ns>:<sa> -n <ns>`
+- `kubectl create rolebinding <name> --role=<role> --serviceaccount=<ns>:<sa> --namespace <ns>`
 - `kubectl create clusterrolebinding ...` — grants cluster-wide, review carefully
 
 ## Verification
 ```bash
-kubectl auth can-i <verb> <resource> -n <namespace> \
+kubectl auth can-i <verb> <resource> --namespace <namespace> \
   --as=system:serviceaccount:<namespace>:<serviceaccount>
 ```
 Verified when the impersonated check returns `yes` and the workload stops

@@ -26,9 +26,9 @@ When a user requests troubleshooting assistance (e.g. "Check why my pod is faili
 2. **Discover Scope**: Run `kubectl get pods -A` to discover failing workloads across all namespaces.
 3. **Traverse Decision Trees**: Load relevant YAML decision tree from `decision-trees/`.
 4. **Collect Evidence**:
-   - `kubectl describe pod <name> -n <namespace>`
-   - `kubectl logs <name> -n <namespace> --previous --all-containers`
-   - `kubectl get events -n <namespace>`
+   - `kubectl describe pod <name> --namespace <namespace>`
+   - `kubectl logs <name> --namespace <namespace> --previous --all-containers`
+   - `kubectl get events --namespace <namespace>`
 5. **Form & Verify Hypothesis**: Match evidence against patterns in `runbooks/`.
 6. **Report Findings & Present Remediation**:
    - Present findings, confidence level, and observed evidence.

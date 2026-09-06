@@ -29,7 +29,7 @@ class TestCatalogConformance(unittest.TestCase):
         mismatches = []
         checked = 0
 
-        for name in ["kubectl.yaml", "helm.yaml"]:
+        for name in ["kubectl.yaml", "helm.yaml", "kustomize.yaml"]:
             catalog = yaml.safe_load((REPO_ROOT / "commands" / name).read_text())
             for entry in catalog["commands"]:
                 checked += 1
@@ -52,8 +52,8 @@ class TestDestructiveDetection(unittest.TestCase):
         # Substring matching on "delete pod --force" missed all of these,
         # because the resource name sits between the verb and the flag.
         for command in [
-            "kubectl delete pod web-1 -n prod --force --grace-period=0",
-            "kubectl delete pod <pod-name> -n <namespace> --force --grace-period=0",
+            "kubectl delete pod web-1 --namespace prod --force --grace-period=0",
+            "kubectl delete pod <pod-name> --namespace <namespace> --force --grace-period=0",
             "kubectl --namespace prod delete pod web-1 --force",
         ]:
             with self.subTest(command=command):
@@ -63,11 +63,11 @@ class TestDestructiveDetection(unittest.TestCase):
         for command in [
             "kubectl delete ns prod",
             "kubectl delete namespace prod",
-            "kubectl delete pvc data -n prod",
-            "kubectl delete persistentvolumeclaim data -n prod",
+            "kubectl delete pvc data --namespace prod",
+            "kubectl delete persistentvolumeclaim data --namespace prod",
             "kubectl delete crd widgets.example.com",
             "kubectl delete pv pv-0001",
-            "kubectl delete deployment web -n prod",
+            "kubectl delete deployment web --namespace prod",
         ]:
             with self.subTest(command=command):
                 self.assertEqual(DESTRUCTIVE, classify_command_safety(command))
@@ -76,7 +76,7 @@ class TestDestructiveDetection(unittest.TestCase):
         self.assertEqual(DESTRUCTIVE, classify_command_safety("kubectl apply -f . --prune"))
         self.assertEqual(DESTRUCTIVE, classify_command_safety("kubectl replace --force -f pod.yaml"))
         self.assertEqual(DESTRUCTIVE, classify_command_safety("kubectl drain node-1"))
-        self.assertEqual(DESTRUCTIVE, classify_command_safety("helm uninstall web -n prod"))
+        self.assertEqual(DESTRUCTIVE, classify_command_safety("helm uninstall web --namespace prod"))
 
     def test_dry_run_does_not_downgrade(self):
         # --dry-run=none executes for real, so the flag is not a safety signal.
@@ -97,12 +97,12 @@ class TestReadOnlyCommands(unittest.TestCase):
             "kubectl cluster-info",
             "kubectl get nodes -o wide",
             "kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded",
-            "kubectl describe pod web-1 -n prod",
-            "kubectl logs web-1 -n prod --previous --all-containers",
+            "kubectl describe pod web-1 --namespace prod",
+            "kubectl logs web-1 --namespace prod --previous --all-containers",
             "kubectl get events -A --sort-by='.metadata.creationTimestamp'",
             "kubectl auth can-i list pods -A",
             "kubectl config current-context",
-            "kubectl rollout status deployment/web -n prod",
+            "kubectl rollout status deployment/web --namespace prod",
         ]:
             with self.subTest(command=command):
                 self.assertEqual(SAFE_READ, classify_command_safety(command))
@@ -110,31 +110,54 @@ class TestReadOnlyCommands(unittest.TestCase):
     def test_read_only_helm_is_safe_read(self):
         for command in [
             "helm list -A",
-            "helm status web -n prod",
-            "helm get values web -n prod",
-            "helm get manifest web -n prod",
-            "helm history web -n prod",
+            "helm status web --namespace prod",
+            "helm get values web --namespace prod",
+            "helm get manifest web --namespace prod",
+            "helm history web --namespace prod",
             "helm repo list",
         ]:
             with self.subTest(command=command):
                 self.assertEqual(SAFE_READ, classify_command_safety(command))
 
+    def test_read_only_kustomize_is_safe_or_diagnostic(self):
+        self.assertEqual(
+            SAFE_DIAGNOSTIC,
+            classify_command_safety("kustomize build overlays/prod"),
+        )
+        self.assertEqual(
+            SAFE_READ,
+            classify_command_safety("kustomize cfg tree overlays/prod"),
+        )
+        self.assertEqual(
+            SAFE_DIAGNOSTIC,
+            classify_command_safety("/usr/local/bin/kustomize version"),
+        )
+
+    def test_kustomize_plugin_execution_is_not_safe(self):
+        for command in [
+            "kustomize build overlays/prod --enable-alpha-plugins",
+            "kustomize build overlays/prod --enable-exec",
+            "kustomize fn run config.yaml",
+        ]:
+            with self.subTest(command=command):
+                self.assertEqual(HUMAN_APPROVAL_REQUIRED, classify_command_safety(command))
+
     def test_resource_names_containing_verb_words_stay_safe(self):
         # Substring matching flagged all of these as needing approval because
         # the resource name happens to contain "scale", "edit" or "delete".
         for command in [
-            "kubectl logs deployment/scale-worker -n prod",
+            "kubectl logs deployment/scale-worker --namespace prod",
             "kubectl get pods -l app=scaler",
-            "kubectl describe pod editor-7f9c -n prod",
-            "kubectl get deployment autoscale-controller -n kube-system",
-            "kubectl logs job/nightly-delete-cleanup -n prod",
+            "kubectl describe pod editor-7f9c --namespace prod",
+            "kubectl get deployment autoscale-controller --namespace kube-system",
+            "kubectl logs job/nightly-delete-cleanup --namespace prod",
         ]:
             with self.subTest(command=command):
                 self.assertEqual(SAFE_READ, classify_command_safety(command))
 
     def test_diagnostic_commands(self):
         for command in [
-            "kubectl top pod -n prod --containers",
+            "kubectl top pod --namespace prod --containers",
             "kubectl explain pod.spec.containers",
             "helm template web ./chart",
             "helm lint ./chart",
@@ -149,17 +172,19 @@ class TestReadOnlyCommands(unittest.TestCase):
 class TestMutatingCommands(unittest.TestCase):
     def test_mutating_commands_require_approval(self):
         for command in [
-            "kubectl rollout restart deployment/web -n prod",
-            "kubectl scale deployment web --replicas=3 -n prod",
-            "kubectl patch deployment web -p '{}' -n prod",
+            "kubectl rollout restart deployment/web --namespace prod",
+            "kubectl scale deployment web --replicas=3 --namespace prod",
+            "kubectl patch deployment web -p '{}' --namespace prod",
             "kubectl apply -f deployment.yaml",
-            "kubectl edit deployment web -n prod",
+            "kubectl edit deployment web --namespace prod",
             "kubectl cordon node-1",
-            "kubectl exec -it web-1 -n prod -- sh",
+            "kubectl exec -it web-1 --namespace prod -- sh",
             "kubectl config use-context prod",
-            "helm upgrade web ./chart -n prod",
-            "helm rollback web 3 -n prod",
+            "helm upgrade web ./chart --namespace prod",
+            "helm rollback web 3 --namespace prod",
             "helm repo add stable https://example.com/charts",
+            "kustomize edit add resource deployment.yaml",
+            "kustomize create --autodetect",
         ]:
             with self.subTest(command=command):
                 self.assertEqual(HUMAN_APPROVAL_REQUIRED, classify_command_safety(command))
@@ -202,7 +227,7 @@ class TestChainedCommands(unittest.TestCase):
             ("kubectl get pods; kubectl delete pvc data", DESTRUCTIVE),
             ("kubectl get pods || kubectl rollout restart deployment/web", HUMAN_APPROVAL_REQUIRED),
             ("kubectl get pods -A && kubectl get nodes", SAFE_READ),
-            ("kubectl get pods -A && kubectl top pod -n prod", SAFE_DIAGNOSTIC),
+            ("kubectl get pods -A && kubectl top pod --namespace prod", SAFE_DIAGNOSTIC),
         ]
         for command, expected in cases:
             with self.subTest(command=command):

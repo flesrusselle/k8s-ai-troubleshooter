@@ -87,8 +87,8 @@ what your model supports:
 ## 3. Always redact first
 
 ```bash
-python3 scripts/collect.py -n prod -o evidence-bundle    # bundle, redacted
-kubectl describe pod api-1 -n prod | python3 scripts/redact.py   # single command
+python3 scripts/collect.py --namespace prod --output evidence-bundle    # bundle, redacted
+kubectl describe pod api-1 --namespace prod | python3 scripts/redact.py   # single command
 ```
 
 This applies to self-hosted models too. A local model is not automatically

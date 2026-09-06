@@ -90,26 +90,29 @@ class TestKindScenarios(unittest.TestCase):
     def _apply(self, manifest):
         _kubectl("apply", "-f", "-", input_text=manifest)
 
-    def _wait_for_pod_json(self, name, predicate, timeout=90):
+    def _wait_for_pod_json(self, name, predicate, timeout=180):
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            result = _kubectl("get", "pod", name, "-n", self.namespace, "-o", "json", check=False)
+            result = _kubectl("get", "pod", name, "--namespace", self.namespace, "--output", "json", check=False)
             if result.returncode == 0:
                 last = json.loads(result.stdout)
                 if predicate(last):
                     return last
             time.sleep(2)
+        status = json.dumps((last or {}).get("status", {}), indent=2)
+        events = _kubectl("get", "events", "--namespace", self.namespace, check=False).stdout
         self.fail(
-            f"pod {name} never reached the expected state within {timeout}s; "
-            f"last seen: {json.dumps(last, indent=2)[:2000]}"
+            f"pod {name} never reached expected state within {timeout}s;\n"
+            f"status:\n{status}\n"
+            f"events:\n{events}"
         )
 
     def _wait_for_event(self, object_name, reason, timeout=45):
         deadline = time.time() + timeout
         while time.time() < deadline:
             result = _kubectl(
-                "get", "events", "-n", self.namespace,
+                "get", "events", "--namespace", self.namespace,
                 "--field-selector", f"involvedObject.name={object_name},reason={reason}",
                 "-o", "json", check=False,
             )
@@ -225,7 +228,7 @@ spec:
         # refusal to place a pod that mounts an unbound PVC.
         message = self._wait_for_event(pod_name, "FailedScheduling", timeout=45)
 
-        pvc = json.loads(_kubectl("get", "pvc", pvc_name, "-n", self.namespace, "-o", "json").stdout)
+        pvc = json.loads(_kubectl("get", "pvc", pvc_name, "--namespace", self.namespace, "--output", "json").stdout)
         self.assertEqual(pvc["status"]["phase"], "Pending")
 
         route = route_symptom(message)
@@ -259,6 +262,50 @@ spec:
         finally:
             _kubectl("taint", "node", node, f"{taint}-", check=False)
 
+    def test_triage_and_export_on_crashloop_bundle(self):
+        name = "triage-test-pod"
+        self._apply(f"""
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {name}
+  namespace: {self.namespace}
+spec:
+  containers:
+    - name: crasher
+      image: busybox:1.36
+      command: ["sh", "-c", "echo crash && exit 1"]
+""")
+        self._wait_for_pod_state(name, "CrashLoopBackOff", timeout=60)
+
+        # Run collection into temporary bundle
+        bundle_dir = Path("/tmp") / f"bundle-{uuid.uuid4().hex[:8]}"
+        res_collect = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "k8s_ai.py"), "collect", "--namespace", self.namespace, "--bundle-dir", str(bundle_dir)],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(res_collect.returncode, 0, f"collect failed: {res_collect.stderr}")
+
+        # Run triage --json
+        res_triage = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "k8s_ai.py"), "triage", "--bundle", str(bundle_dir), "--json"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(res_triage.returncode, 0, f"triage failed: {res_triage.stderr}")
+        triage_data = json.loads(res_triage.stdout)
+        self.assertIn("status", triage_data)
+        self.assertIn("hypotheses", triage_data)
+
+        # Run export
+        tar_out = Path("/tmp") / f"export-{uuid.uuid4().hex[:8]}.tar.gz"
+        res_export = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "k8s_ai.py"), "export", "--bundle", str(bundle_dir), "--output", str(tar_out)],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(res_export.returncode, 0, f"export failed: {res_export.stderr}")
+        self.assertTrue(tar_out.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
+

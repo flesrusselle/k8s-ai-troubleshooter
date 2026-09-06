@@ -2,7 +2,7 @@
 """
 Command safety classification for k8s-ai-troubleshooter.
 
-Classifies a `kubectl` or `helm` command string into one of the repository's
+Classifies a `kubectl`, `helm`, or `kustomize` command string into one of the repository's
 four safety tiers. `commands/*.yaml` remains the human-facing source of truth;
 `tests/test_safety.py` asserts that this module agrees with every catalogued
 entry, so the two cannot drift.
@@ -12,7 +12,7 @@ Design rules, in order of importance:
 1. **Parse, never substring-match.** Classification is driven by the argv verb
    path (`kubectl rollout restart`), not by searching the raw string. Substring
    matching both under-classifies (`"delete pod --force"` is never a contiguous
-   substring of `kubectl delete pod web-1 -n prod --force`) and over-classifies
+   substring of `kubectl delete pod web-1 --namespace prod --force`) and over-classifies
    (`kubectl logs deployment/scale-worker` contains `"scale"`).
 
 2. **Fail closed.** Anything not positively recognised as read-only is
@@ -113,6 +113,17 @@ HELM_READ_SUBCOMMANDS = {
 }
 
 HELM_DESTRUCTIVE_VERBS = {"uninstall", "delete", "purge"}
+
+# --- kustomize -----------------------------------------------------------
+
+KUSTOMIZE_DIAGNOSTIC_VERBS = {"build", "version"}
+
+KUSTOMIZE_READ_SUBCOMMANDS = {
+    ("cfg", "tree"),
+    ("cfg", "cat"),
+}
+
+KUSTOMIZE_MUTATING_VERBS = {"create", "edit", "fn", "set"}
 
 
 @dataclass(frozen=True)
@@ -275,6 +286,44 @@ def _classify_helm(args):
     )
 
 
+def _classify_kustomize(args):
+    words = _positionals(args)
+    flags = _flags(args)
+
+    if not words:
+        return Classification(HUMAN_APPROVAL_REQUIRED, "kustomize with no verb")
+
+    verb = words[0]
+    pair = (verb, words[1]) if len(words) > 1 else None
+
+    if pair in KUSTOMIZE_READ_SUBCOMMANDS:
+        return Classification(SAFE_READ, f"kustomize {pair[0]} {pair[1]} reads local configuration")
+
+    # Kustomize build is local rendering, but alpha plugins and Helm support
+    # can execute external programs. Keep those invocations approval-gated.
+    if verb == "build":
+        if {"--enable-alpha-plugins", "--enable-exec"} & flags:
+            return Classification(
+                HUMAN_APPROVAL_REQUIRED,
+                "kustomize build enables external plugin execution",
+            )
+        return Classification(SAFE_DIAGNOSTIC, "kustomize build renders local manifests")
+
+    if verb in KUSTOMIZE_DIAGNOSTIC_VERBS:
+        return Classification(SAFE_DIAGNOSTIC, f"kustomize {verb} is a non-mutating diagnostic")
+
+    if verb in KUSTOMIZE_MUTATING_VERBS:
+        return Classification(
+            HUMAN_APPROVAL_REQUIRED,
+            f"kustomize {verb} can modify local files or execute functions",
+        )
+
+    return Classification(
+        HUMAN_APPROVAL_REQUIRED,
+        f"kustomize {verb} is not a recognised read-only verb",
+    )
+
+
 def _classify_segment(tokens):
     tokens = _strip_wrappers(tokens)
     if not tokens:
@@ -287,6 +336,8 @@ def _classify_segment(tokens):
         return _classify_kubectl(args)
     if binary == "helm":
         return _classify_helm(args)
+    if binary == "kustomize":
+        return _classify_kustomize(args)
 
     return Classification(
         HUMAN_APPROVAL_REQUIRED,

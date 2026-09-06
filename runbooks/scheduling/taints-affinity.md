@@ -25,14 +25,14 @@ arithmetic: the counts must sum to the total node count.
 
 ```bash
 # 1. The message names every reason and how many nodes each excluded
-kubectl describe pod <pod-name> -n <namespace> | grep -A15 Events
+kubectl describe pod <pod-name> --namespace <namespace> | grep -A15 Events
 
 # 2. Node taints and labels
 kubectl get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints'
 kubectl get nodes --show-labels
 
 # 3. What the pod is asking for
-kubectl get pod <pod-name> -n <namespace> \
+kubectl get pod <pod-name> --namespace <namespace> \
   -o jsonpath='{.spec.tolerations}{"\n"}{.spec.affinity}{"\n"}{.spec.topologySpreadConstraints}{"\n"}'
 ```
 
@@ -124,7 +124,7 @@ away from — a compliance boundary, a licensed node, a GPU pool.
 
 ## Verification
 ```bash
-kubectl get pod <pod-name> -n <namespace> -o wide
+kubectl get pod <pod-name> --namespace <namespace> -o wide
 ```
 Verified when the pod has a `NODE` assignment and the node is the kind you
 intended. Scheduled is not the same as correctly placed: check the node's labels

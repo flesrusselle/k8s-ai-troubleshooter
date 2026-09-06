@@ -1,0 +1,57 @@
+{{- if .Values.ui.enabled }}
+# ConfigMap: nginx config — serves static files on port 8080 (non-root compatible)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "k8s-ai-troubleshooter.fullname" . }}-ui-nginx
+  labels:
+    {{- include "k8s-ai-troubleshooter.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ui
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN"            always;
+        add_header X-Content-Type-Options "nosniff"        always;
+        add_header X-XSS-Protection "1; mode=block"        always;
+        add_header Referrer-Policy "strict-origin"         always;
+        add_header Content-Security-Policy "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;" always;
+
+        # Cache static assets aggressively
+        location ~* \.(css|js|json|woff2?|ttf|svg|ico|png)$ {
+            expires 7d;
+            add_header Cache-Control "public, immutable";
+        }
+
+        # HTML is never cached (allows rolling updates without cache busting)
+        location ~* \.html$ {
+            expires -1;
+            add_header Cache-Control "no-store, no-cache, must-revalidate";
+        }
+
+        # Evidence files — served from mounted PVC (read-only)
+        location /evidence/ {
+            alias /usr/share/nginx/html/evidence/;
+            autoindex off;
+            add_header Cache-Control "no-store";
+        }
+
+        # SPA fallback
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Health endpoint for k8s probes
+        location /healthz {
+            access_log off;
+            return 200 "ok\n";
+            add_header Content-Type text/plain;
+        }
+    }
+{{- end }}
